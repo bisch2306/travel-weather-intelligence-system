@@ -16,7 +16,6 @@ This system provides an automated, end-to-end decision-support solution. It cont
 
 The architecture follows a decoupled, event-driven pattern combining scheduled polling with webhook triggers for instant state updates.
 
-```mermaid
 graph TD
     subgraph External Data Sources
         A1["CWA Hazard Alerts API"]
