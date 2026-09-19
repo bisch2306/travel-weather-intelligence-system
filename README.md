@@ -26,7 +26,8 @@ graph TD
 
     subgraph Orchestration Core
         B1["Cron Scheduler Blueprint"] -->|GET Event| B2["Hazards Processing Pipeline"]
-        C1["Notion Action Webhook"] -->|Instant Trigger| B3["Spot Weather Webhook"] -->|API Call| B4["Spot Weather Pipeline"]
+        C1["Notion Action Webhook"] -->|Instant Trigger| B3["Spot Weather Webhook"]
+        B3 -->|API Call| B4["Spot Weather Pipeline"]
         
         A1 --> B2
         A2 --> B4
