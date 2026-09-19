@@ -43,6 +43,7 @@ graph TD
         E -->|Read Active Station| F["Client-Side JS Widget"]
         F -->|Render Dynamic Forecast| G["User Interface / Dashboard"]
     end
+```
 
 ---
 
