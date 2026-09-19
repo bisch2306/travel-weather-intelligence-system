@@ -1,16 +1,17 @@
 # 🇹🇼 Travel Risk & Weather Intelligence System (Taiwan)
 
-A schedule- and event-driven automation built with **Make.com** that pulls official Taiwanese weather data from the **CWA Open Data API**, derives simple weather and hazard indicators, and writes them into a **Notion travel workspace**. Everything can be shown on one Notion dashboard, including an embedded Meteoblue forecast widget for the current stop of the trip.
+A schedule- and event-driven automation built with **Make.com** that pulls official Taiwanese weather and hazard data (CWA / WRA open data), derives simple weather and hazard indicators, and writes them into a **Notion travel workspace**. Everything can be shown on one Notion dashboard, including an embedded Meteoblue forecast widget for the current stop of the trip.
 
 ---
 
 ## 📌 Purpose
 
-When traveling through regions prone to typhoons and heavy rain, checking forecasts manually is easy to forget. This project automates the following:
+When traveling through regions prone to typhoons, heavy rain and floods, checking forecasts manually is easy to forget. This project automates the following:
 
-- Fetch official hazard alerts and map them to the stops of the itinerary.
+- Fetch official rain, storm, flood and typhoon warnings and map them to the stops of the itinerary.
 - Evaluate the current weather at the active stop and store a weather level (1–4).
-- Raise a typhoon flag if a land typhoon warning is active.
+- Store the maximum forecast level for the next 2, 4, 6 and 10 hours.
+- Raise a typhoon flag if a typhoon warning is active.
 - Use the weather level in Notion to help pick suitable spots.
 - Show a location-aware forecast widget inside the Notion dashboard.
 
@@ -20,10 +21,13 @@ When traveling through regions prone to typhoons and heavy rain, checking foreca
 
 ```mermaid
 graph TD
-    subgraph CWA["CWA Open Data API"]
-        A1["W-C0033-002<br/>Hazard Alerts"]
-        A2["O-A0003-001<br/>Station Observations"]
-        A3["W-C0034-001<br/>Typhoon Warnings"]
+    subgraph SRC["Official open data (CWA / WRA)"]
+        A1["Rain warnings<br/>W-C0033-002"]
+        A2["Storm warnings<br/>W-C0033-006"]
+        A3["Flood warnings<br/>(WRA, KML/XML)"]
+        A4["Typhoon warnings<br/>W-C0034-001"]
+        A5["Station observations<br/>O-A0003-001"]
+        A6["District forecast<br/>(dataset ID per stop)"]
     end
 
     subgraph Make["Make.com (zone eu1)"]
@@ -42,11 +46,15 @@ graph TD
     end
 
     A1 --> H
-    A2 --> P
-    A3 --> P
+    A2 --> H
+    A3 --> H
+    A4 --> H
+    A4 --> P
+    A5 --> P
+    A6 --> P
     H -->|"reads active stops"| ID
-    H -->|"reset, then write alert times"| HD
-    P -->|"reads station ID, writes weather level and typhoon flag"| TR
+    H -->|"reset, then write warning types and times"| HD
+    P -->|"reads station ID, writes weather levels and typhoon flag"| TR
     TR --> SP
     ID --> DB
     HD --> DB
@@ -56,9 +64,9 @@ graph TD
     WG --> MB["Meteoblue forecast iframe"]
 ```
 
-> **Note:** The widget does **not** read from Notion. It selects the location from a date schedule configured in the HTML file (see [Widget](#4-dashboard-widget-srcmeteoblue-widgethtml)).
+> **Note:** The widget does **not** read from Notion. It selects the location from a date schedule configured in the HTML file (see [Widget](#5-dashboard-widget-srcmeteoblue-widgethtml)).
 
-> **Scope note:** The blueprints in this repository are anonymized: names, labels and IDs are generic English placeholders. A real workspace may contain additional fields that these blueprints do not touch, for example multi-horizon forecast levels or separate rain/storm/flood/typhoon hazard fields.
+> **Blueprint files vs. full scenarios:** The diagrams below show the complete scenarios as they are built in Make.com. The JSON files in `blueprints/` are anonymized, English-translated **reference versions** and are reduced: `02_hazards_main.json` contains only the rain-warning route, and `03_spot_weather_main.json` contains the current-weather evaluation and a simple typhoon flag loop, but no forecast branch. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
 ---
 
@@ -80,57 +88,124 @@ graph TD
 
 ## ⚙️ Subsystems
 
-### 1. Hazard Alerts & Regional Mapping (`01_hazards_scheduler.json`, `02_hazards_main.json`)
+### 1. Hazards Scheduler (`01_hazards_scheduler.json`)
 
-**01 – Scheduler:** A single HTTP module that sends a GET request to the webhook URL of scenario 02. The run interval is configured in the Make.com scenario settings and is **not** part of the exported blueprint.
+A single scheduled HTTP module that sends a GET request to the webhook URL of scenario 02. The run interval is configured in the Make.com scenario settings and is **not** part of the exported blueprint.
 
-**02 – Hazards Pipeline** (triggered by a custom webhook):
+### 2. Hazards Pipeline (`02_hazards_main.json`)
 
-1. **Reset:** Searches the hazard status database and sets five fields to empty (`Typhoon Start`, `Typhoon End`, `Storm Level`, `Rain Start`, `Rain End`).
-2. **Load itinerary:** Searches the itinerary database for entries with the status `🟢 Current`, `🟡 Next Stop` or `⚪ Upcoming`.
-3. **Fetch alerts:** Calls CWA dataset `W-C0033-002` and iterates over all returned locations.
-4. **Map & filter:** A router filter ("Relevant Location Filter") compares the `Location` property of each itinerary entry with the CWA county/city name:
+Triggered by a custom webhook. It resets the hazard fields, loads the relevant stops and then queries four warning sources via a router. Each route parses the response, extracts the warning type and its start/end time, and writes them to the matching row of the hazard status database.
 
-   | CWA `locationName` | Location |
-   | :--- | :--- |
-   | `臺北市` | `Taipei` |
-   | `嘉義縣` | `Alishan` |
-   | `屏東縣` | `Xiaoliuqiu` |
-   | `高雄市` | `Kaohsiung` |
-   | `花蓮縣` | `Hualien` |
+```mermaid
+flowchart TD
+    W["Custom webhook"] --> S1["Notion: search hazard rows"]
+    S1 --> U1["Notion: reset hazard fields"]
+    U1 --> A1["Text aggregator"]
+    A1 --> S2["Notion: search itinerary"]
+    S2 --> A2["Text aggregator"]
+    A2 --> R{"Router"}
 
-5. **Write:** For matching pairs, the alert's `startTime` / `endTime` are written to `Rain Start` / `Rain End` in the hazard status database.
+    R -->|"1 Rain"| R1["HTTP GET<br/>CWA rain warnings<br/>W-C0033-002"]
+    R1 --> R1a["3 iterators"]
+    R1a --> R1b["Set variables:<br/>rain type, start, end"]
+    R1b --> R1c["Notion: search row"]
+    R1c --> R1d["Notion: update row"]
 
-### 2. Spot Weather & Typhoon Evaluation (`03_spot_weather_main.json`)
+    R -->|"2 Storm"| R2["HTTP GET<br/>CWA storm warnings<br/>W-C0033-006"]
+    R2 --> R2a["Parse XML"]
+    R2a --> R2b["3 iterators"]
+    R2b --> R2c["Set variables"]
+    R2c --> R2d["Notion: search row"]
+    R2d --> R2e["Notion: update row"]
 
-1. Reads a fixed Notion page (`{{YOUR_NOTION_MAIN_PAGE_ID}}`) and resets `HazardLevel` and `Forecast-MAX`.
-2. Takes the CWA station ID from the formula property `StationID` of that page and requests the current observation from `O-A0003-001`.
-3. Reads the weather text of the returned station and derives a level via nested keyword matching (first match wins, checked from top to bottom):
+    R -->|"3 Flood"| R3["HTTP GET<br/>WRA flood warnings<br/>(KML)"]
+    R3 --> R3a["Parse XML"]
+    R3a --> R3b["2 iterators"]
+    R3b --> R3c["Parse XML"]
+    R3c --> R3d["Set variables"]
+    R3d --> R3e["Notion: search row"]
+    R3e --> R3f["Notion: update row"]
 
-   | Keywords (Chinese) | Meaning | Level |
-   | :--- | :--- | :---: |
-   | `雷`, `豪雨`, `大雨` | thunder, torrential rain, heavy rain | **4** |
-   | `短暫`, `陣雨`, `小雨` | brief/short-lived, showers, light rain | **3** |
-   | `陰`, `雲` | overcast, cloud | **2** |
-   | anything else | clear / normal | **1** |
+    R -->|"4 Typhoon"| R4["HTTP GET<br/>CWA typhoon warnings<br/>W-C0034-001"]
+    R4 --> R4a["2 iterators"]
+    R4a --> R4b["Set variables:<br/>typhoon warning, start, end"]
+    R4b --> R4c["Notion: search row"]
+    R4c --> R4d["Notion: update row"]
+```
 
-4. Writes the level to **`HazardLevel`**.
-5. Requests typhoon warnings from `W-C0034-001` and iterates over the warnings. For each warning the flag is `1` if the type is `陸上颱風警報` (land warning) or `海上陸上颱風警報` (sea and land warning) **and** `expires` is in the future, otherwise `0`.
-6. Writes the flag to **`Forecast-MAX`**.
+**Regional mapping:** CWA county/city names are matched with the stops of the itinerary:
 
-### 3. Webhook Listener (`04_spot_weather_webhook.json`)
+| CWA `locationName` | Location |
+| :--- | :--- |
+| `臺北市` | `Taipei` |
+| `嘉義縣` | `Alishan` |
+| `屏東縣` | `Xiaoliuqiu` |
+| `高雄市` | `Kaohsiung` |
+| `花蓮縣` | `Hualien` |
+
+### 3. Spot Weather Pipeline (`03_spot_weather_main.json`)
+
+Starts with a search in Notion (no trigger module) and can be started by a schedule or by scenario 04 through the Make API.
+
+```mermaid
+flowchart TD
+    S["Notion: search trip page"] --> U["Notion: reset weather fields"]
+    U --> C["HTTP GET<br/>CWA station observations<br/>O-A0003-001"]
+    C --> I["Iterator"]
+    I --> V1["Set variable:<br/>current weather text"]
+    V1 --> V2["Set variable:<br/>current weather level"]
+    V2 --> N1["Notion: update weather level"]
+    N1 --> T["HTTP GET<br/>CWA typhoon warnings<br/>W-C0034-001"]
+    T --> R{"Router"}
+
+    R -->|"typhoon active (filter)"| F1["Set variable:<br/>typhoon flag = 1"]
+    F1 --> F2["Notion: update typhoon flag"]
+
+    R -->|"fallback"| F["HTTP GET<br/>CWA district forecast"]
+    F --> FI["Iterator"]
+    FI --> R2{"Router"}
+
+    R2 -->|"2 h"| H2["Iterator, level per time block,<br/>MAX aggregator"]
+    H2 --> N2["Notion: update Forecast MAX 2h"]
+    R2 -->|"4 h"| H4["Iterator, level per time block,<br/>MAX aggregator"]
+    H4 --> N4["Notion: update Forecast MAX 4h"]
+    R2 -->|"6 h"| H6["Iterator, level per time block,<br/>MAX aggregator"]
+    H6 --> N6["Notion: update Forecast MAX 6h"]
+    R2 -->|"10 h"| H10["Iterator, level per time block,<br/>MAX aggregator"]
+    H10 --> N10["Notion: update Forecast MAX 10h"]
+```
+
+**Current weather level:** the weather text of the returned station is converted into a level via nested keyword matching (first match wins, checked from top to bottom):
+
+| Keywords (Chinese) | Meaning | Level |
+| :--- | :--- | :---: |
+| `雷`, `豪雨`, `大雨` | thunder, torrential rain, heavy rain | **4** |
+| `短暫`, `陣雨`, `小雨` | brief/short-lived, showers, light rain | **3** |
+| `陰`, `雲` | overcast, cloud | **2** |
+| anything else | clear / normal | **1** |
+
+**Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future).
+
+**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each time block and stores the maximum for the next 2, 4, 6 and 10 hours.
+
+### 4. Webhook Listener (`04_spot_weather_webhook.json`)
+
+```mermaid
+flowchart LR
+    W["Custom webhook<br/>(Notion weather update)"] --> H["HTTP POST<br/>Make API: run scenario 03"]
+```
 
 Receives a call on a Make custom webhook and starts scenario 03 immediately via the Make API (`POST /api/v2/scenarios/{scenarioId}/run`, token authentication). This allows an on-demand refresh, e.g. after changing the itinerary.
 
-The Notion-side trigger that calls this webhook (e.g. a Notion automation or button) is **not** part of this repository and has to be set up separately. Scenario 03 has no schedule in this repository; it runs when triggered through this webhook, or when a schedule is added manually in Make.
+The Notion-side trigger that calls this webhook (e.g. a Notion automation or button) is **not** part of this repository and has to be set up separately.
 
-### 4. Dashboard Widget (`src/meteoblue-widget.html`)
+### 5. Dashboard Widget (`src/meteoblue-widget.html`)
 
 A standalone HTML page embedding a Meteoblue forecast widget (dark layout, 4 days) in an iframe.
 
 - **Hosting:** The page has to be served over HTTPS (for example via GitHub Pages) and is then embedded into the Notion dashboard with an embed block. Publishing the file as `index.html` on GitHub Pages is enough.
 - **Schedule-based location:** The `SCHEDULE` array at the top of the script maps date ranges (in the `Asia/Taipei` timezone) to one of five locations: `taipei`, `alishan`, `xiaoliuqiu`, `kaohsiung`, `hualien`. Outside all ranges, `DEFAULT_LOCATION` is used. The schedule ships with **example dates**; replace them with your own itinerary. It is **not** synchronized with Notion, so changes to the itinerary in Notion must be repeated here.
-- **Manual override:** `?location=<name>` forces a location, e.g. `index.html?location=hualien`.
+- **Manual override:** `?location=<name>` shows a specific location instead of the one from the schedule, e.g. `index.html?location=hualien`.
 - **Auto-switch:** Every 60 seconds the page re-evaluates the schedule locally and re-renders the iframe only if the location changed. No network requests are made besides loading the Meteoblue widget.
 
 ---
@@ -151,18 +226,22 @@ The Make.com scenarios expect the following structure. Names must match the blue
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
 | `StationID` | Formula (text) | CWA station ID of the active stop |
-| `HazardLevel` | Number | Weather level 1–4 |
-| `Forecast-MAX` | Number | Typhoon flag (0/1) |
+| `HazardLevel` | Number | Current weather level 1–4 |
+| `Forecast-MAX` | Number | Typhoon flag (0/1) in the blueprint |
+
+In the full setup, the trip page additionally stores the forecast maxima per horizon (2 h, 4 h, 6 h, 10 h) and a separate typhoon flag.
 
 **Hazard status database** (reset and updated by scenario 02)
 
-| Property | Type | Written by 02? |
+| Property | Type | Written by the blueprint? |
 | :--- | :--- | :---: |
 | `Rain Start` | Date | ✅ |
 | `Rain End` | Date | ✅ |
 | `Typhoon Start` | Date | reset only |
 | `Typhoon End` | Date | reset only |
 | `Storm Level` | Number | reset only |
+
+In the full setup, the hazard database holds start/end times (and levels) for rain, storm, flood and typhoon warnings.
 
 Everything else (dashboard layout, spot index, calendar, transfers, bookings, guides) is maintained in Notion and only consumes the resulting values.
 
@@ -217,21 +296,23 @@ The same 1–4 scale can be used for the current level and for the weather toler
 
 ---
 
-## ⚠️ Known Limitations
+## 📝 Notes on the blueprint files
 
-- **Typhoon flag:** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The flag is not location-specific.
-- **Hazard alerts:** all alert types from `W-C0033-002` are written to `Rain Start` / `Rain End`; there is no filtering by phenomenon. The typhoon and storm fields are reset but never filled.
-- **Reset before fetch:** scenario 02 clears the hazard fields before calling CWA. If the API call fails, the fields stay empty until the next successful run.
-- **Single-row assumption:** scenario 02 addresses the hazard status database through `{{18.id}}` (the search result) and does not compare the area of that row with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times.
-- **Missing observations:** the severity logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
+The blueprints in `blueprints/` are reduced reference versions of the scenarios shown above. For these files the following limitations apply:
+
+- **Typhoon flag (`03`):** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The flag is not location-specific.
+- **Hazard alerts (`02`):** only the rain-warning route is included, and all alert types from `W-C0033-002` are written to `Rain Start` / `Rain End`; there is no filtering by phenomenon. The typhoon and storm fields are reset but never filled.
+- **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
+- **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times.
+- **Missing observations (`03`):** the level logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
 - **Widget schedule:** duplicated logic – the itinerary in Notion and the widget schedule are maintained separately.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Automation:** Make.com (scenarios, routers, custom webhooks, Make API)
-- **Data:** CWA Open Data API (`W-C0033-002`, `O-A0003-001`, `W-C0034-001`), Notion API
+- **Automation:** Make.com (scenarios, routers, iterators, aggregators, custom webhooks, Make API)
+- **Data:** CWA Open Data API (`W-C0033-002`, `W-C0033-006`, `W-C0034-001`, `O-A0003-001`, district forecast), WRA flood warnings (KML/XML), Notion API
 - **Frontend:** plain HTML/CSS/JavaScript (`Intl.DateTimeFormat`, iframe embed), Meteoblue widget, GitHub Pages
 
 ---
@@ -240,5 +321,6 @@ The same 1–4 scale can be used for the current level and for the weather toler
 
 - API keys, tokens, connection IDs, database/page IDs, webhook IDs and widget credentials have been replaced by placeholders (see table above). Never commit real credentials.
 - The Make API token in scenario 04 can start scenarios in your account. Keep it secret and scope it as narrowly as possible.
+- Webhook URLs and scenario IDs are visible in Make screenshots and in the browser address bar. Crop or blur them before sharing images.
 - The widget ships with example dates only. Keep your real travel dates out of public repositories.
 - Do not commit Notion exports of booking pages: they can contain confirmation links with access keys, phone numbers and e-mail addresses.
