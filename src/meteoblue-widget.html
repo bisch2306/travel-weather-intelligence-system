@@ -21,7 +21,8 @@
   <div id="widget"></div>
 
   <script>
-    // Mapped Meteoblue Widget URLs per Location (Sanitized for Repository)
+    // Meteoblue widget URLs per location.
+    // Replace the {{YOUR_...}} placeholders with your own Meteoblue widget credentials.
     const widgets = {
       taipei: "https://www.meteoblue.com/en/weather/widget/three/taipei_taiwan_1668341?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}",
       alishan: "https://www.meteoblue.com/en/weather/widget/three/alishan_taiwan_1679029?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}",
@@ -30,7 +31,19 @@
       hualien: "https://www.meteoblue.com/en/weather/widget/three/hualien-city_taiwan_1674504?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}"
     };
 
-    // Calculate Current Date in Target Timezone (Asia/Taipei)
+    // Itinerary schedule (dates in Asia/Taipei, format YYYY-MM-DD, both ends inclusive).
+    // NOTE: These are example dates. Replace them with your own itinerary.
+    const SCHEDULE = [
+      { from: "2030-01-01", to: "2030-01-03", location: "taipei" },
+      { from: "2030-01-04", to: "2030-01-05", location: "alishan" },
+      { from: "2030-01-06", to: "2030-01-07", location: "xiaoliuqiu" },
+      { from: "2030-01-08", to: "2030-01-08", location: "kaohsiung" },
+      { from: "2030-01-09", to: "2030-01-11", location: "hualien" },
+      { from: "2030-01-12", to: "2030-01-14", location: "taipei" }
+    ];
+    const DEFAULT_LOCATION = "taipei";
+
+    // Current date in the target timezone (Asia/Taipei), formatted as YYYY-MM-DD
     function taipeiDate() {
       const parts = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Taipei",
@@ -45,28 +58,23 @@
       return `${values.year}-${values.month}-${values.day}`;
     }
 
-    // Schedule-Based Location Resolver
+    // Schedule-based location resolver
     function locationForDate(date) {
-      if (date >= "2026-10-02" && date <= "2026-10-07") return "taipei";
-      if (date >= "2026-10-08" && date <= "2026-10-10") return "alishan";
-      if (date >= "2026-10-11" && date <= "2026-10-13") return "xiaoliuqiu";
-      if (date === "2026-10-14") return "kaohsiung";
-      if (date >= "2026-10-15" && date <= "2026-10-18") return "hualien";
-      if (date >= "2026-10-19" && date <= "2026-10-21") return "taipei";
-      return "taipei";
+      const entry = SCHEDULE.find(item => date >= item.from && date <= item.to);
+      return entry ? entry.location : DEFAULT_LOCATION;
     }
 
-    // Resolve Location via URL Parameter Override or Timezone Schedule
+    // Resolve location via URL parameter override (?location=hualien) or via the schedule
     function selectedLocation() {
       const params = new URLSearchParams(window.location.search);
 
-      const override = params.get("ort")?.toLowerCase();
+      const override = params.get("location")?.toLowerCase();
       if (override && widgets[override]) return override;
 
       return locationForDate(taipeiDate());
     }
 
-    // Render Widget Dynamic iFrame
+    // Render the Meteoblue iframe for the selected location
     function renderWidget() {
       const location = selectedLocation();
       const iframe = document.createElement("iframe");
@@ -82,7 +90,7 @@
 
     let lastLocation = selectedLocation();
 
-    // Polling Loop for Automatic Schedule Switching
+    // Polling loop: re-render only when the schedule moves on to another location
     setInterval(() => {
       const currentLocation = selectedLocation();
 
