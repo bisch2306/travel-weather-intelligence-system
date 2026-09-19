@@ -19,9 +19,9 @@ The architecture follows a decoupled, event-driven pattern combining scheduled p
 ```mermaid
 graph TD
     subgraph External Data Sources
-        A1["CWA Hazard Alerts API<br/>W-C0033-002"]
-        A2["CWA Live Station API<br/>O-A0003-001"]
-        A3["CWA Typhoon Warnings API<br/>W-C0034-001"]
+        A1["CWA Hazard Alerts API"]
+        A2["CWA Live Station API"]
+        A3["CWA Typhoon Warnings API"]
     end
 
     subgraph Orchestration Core
@@ -38,8 +38,8 @@ graph TD
     end
 
     subgraph Data & Frontend Presentation
-        D1 -->|Reset & Commit Alerts| E["Notion Itinerary Database"]
-        D2 -->|Update Risk Level & Typhoon Flag| E
+        D1 -->|Reset and Commit Alerts| E["Notion Itinerary Database"]
+        D2 -->|Update Risk Level and Typhoon Flag| E
         E -->|Read Active Station| F["Client-Side JS Widget"]
         F -->|Render Dynamic Forecast| G["User Interface / Dashboard"]
     end
