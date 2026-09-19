@@ -16,7 +16,33 @@ This system provides an automated, end-to-end decision-support solution. It cont
 
 The architecture follows a decoupled, event-driven pattern combining scheduled polling with webhook triggers for instant state updates.
 
-graph TD subgraph External Data Sources A1["CWA Hazard Alerts API"] A2["CWA Live Station API"] A3["CWA Typhoon Warnings API"] end subgraph Orchestration Core B1["Cron Scheduler Blueprint"] -->|GET Event| B2["Hazards Processing Pipeline"] C1["Notion Action Webhook"] -->|Instant Trigger| B3["Spot Weather Webhook"] B3 -->|API Call| B4["Spot Weather Pipeline"] A1 --> B2 A2 --> B4 A3 --> B4 B2 --> D1{"Geographical Mapper"} B4 --> D2{"Severity Logic Engine"} end subgraph Data & Frontend Presentation D1 -->|Reset and Commit Alerts| E["Notion Itinerary Database"] D2 -->|Update Risk Level and Typhoon Flag| E E -->|Read Active Station| F["Client-Side JS Widget"] F -->|Render Dynamic Forecast| G["User Interface / Dashboard"] end
+```mermaid
+graph TD
+    subgraph External Data Sources
+        A1["CWA Hazard Alerts API"]
+        A2["CWA Live Station API"]
+        A3["CWA Typhoon Warnings API"]
+    end
+
+    subgraph Orchestration Core
+        B1["Cron Scheduler Blueprint"] -->|GET Event| B2["Hazards Processing Pipeline"]
+        C1["Notion Action Webhook"] -->|Instant Trigger| B3["Spot Weather Webhook"]
+        B3 -->|API Call| B4["Spot Weather Pipeline"]
+
+        A1 --> B2
+        A2 --> B4
+        A3 --> B4
+
+        B2 --> D1{"Geographical Mapper"}
+        B4 --> D2{"Severity Logic Engine"}
+    end
+
+    subgraph Data & Frontend Presentation
+        D1 -->|Reset and Commit Alerts| E["Notion Itinerary Database"]
+        D2 -->|Update Risk Level and Typhoon Flag| E
+        E -->|Read Active Station| F["Client-Side JS Widget"]
+        F -->|Render Dynamic Forecast| G["User Interface / Dashboard"]
+    end
 
 ---
 
