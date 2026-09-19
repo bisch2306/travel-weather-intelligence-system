@@ -1,0 +1,2413 @@
+{
+	"name": "Taiwan - Hazards Processing Pipeline",
+	"flow": [
+		{
+			"id": 1,
+			"module": "gateway:CustomWebHook",
+			"version": 1,
+			"parameters": {
+				"hook": "{{YOUR_HAZARDS_WEBHOOK_ID}}",
+				"maxResults": 1
+			},
+			"mapper": {},
+			"metadata": {
+				"designer": {
+					"x": -274,
+					"y": 12
+				},
+				"restore": {},
+				"parameters": [
+					{
+						"name": "hook",
+						"type": "hook:gateway",
+						"label": "Webhook",
+						"required": true
+					},
+					{
+						"name": "maxResults",
+						"type": "uinteger",
+						"label": "Max number of returned results"
+					}
+				]
+			}
+		},
+		{
+			"id": 18,
+			"module": "notion:searchObjects",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"database_id": "{{NOTION_HAZARDS_DATABASE_ID}}",
+				"filter_type": "none",
+				"search_type": "database_search"
+			},
+			"metadata": {
+				"designer": {
+					"x": 2,
+					"y": 12
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					},
+					"mapper": {
+						"search_type": {
+							"label": "Search Databases"
+						},
+						"database_id": {
+							"label": "⚠️ Hazard Status"
+						},
+						"filter_type": {
+							"label": "No filter"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "search_type",
+						"type": "select",
+						"label": "Search Type",
+						"required": true,
+						"validate": {
+							"enum": [
+								"page_search",
+								"database_search"
+							]
+						}
+					},
+					{
+						"name": "database_id",
+						"type": "select",
+						"label": "Database ID",
+						"required": true
+					},
+					{
+						"name": "filter_type",
+						"type": "select",
+						"label": "Filter Type",
+						"required": true,
+						"validate": {
+							"enum": [
+								"none",
+								"single",
+								"compound"
+							]
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": 19,
+			"module": "notion:updateADatabaseItem",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"page_id": "{{18.id}}",
+				"database_id": "{{NOTION_HAZARDS_DATABASE_ID}}",
+				"database_fields": {
+					"f_3A%3Fs": null,
+					"i%3EIn": null,
+					"kWyA": null,
+					"oA%3BA": null,
+					"uP~%5C": null
+				}
+			},
+			"metadata": {
+				"designer": {
+					"x": 290,
+					"y": 10
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					},
+					"mapper": {
+						"database_id": {
+							"label": "⚠️ Hazard Status"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "database_id",
+						"type": "select",
+						"label": "Database ID",
+						"required": true
+					},
+					{
+						"name": "page_id",
+						"type": "text",
+						"label": "Page ID",
+						"required": true
+					},
+					{
+						"name": "database_fields",
+						"type": "collection",
+						"label": "Database Fields",
+						"spec": [
+							{
+								"name": "kWyA",
+								"type": "date",
+								"label": "Typhoon Start"
+							},
+							{
+								"name": "oA%3BA",
+								"type": "date",
+								"label": "Typhoon End"
+							},
+							{
+								"name": "i%3EIn",
+								"type": "number",
+								"label": "Storm Level"
+							},
+							{
+								"name": "f_3A%3Fs",
+								"type": "date",
+								"label": "Rain Start"
+							},
+							{
+								"name": "uP~%5C",
+								"type": "date",
+								"label": "Rain End"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": 17,
+			"module": "notion:searchObjects",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"database_id": "{{NOTION_ITINERARY_DATABASE_ID}}",
+				"filter_type": "compound",
+				"search_type": "database_search",
+				"compound_filter": {
+					"or": [
+						{
+							"status": {
+								"equals": "🟢 Current"
+							},
+							"property": "Status"
+						},
+						{
+							"status": {
+								"equals": "🟡 Next Stop"
+							},
+							"property": "Status"
+						},
+						{
+							"status": {
+								"equals": "⚪ Upcoming"
+							},
+							"property": "Status"
+						}
+					]
+				}
+			},
+			"metadata": {
+				"designer": {
+					"x": 583,
+					"y": 10
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					},
+					"mapper": {
+						"search_type": {
+							"label": "Search Databases"
+						},
+						"database_id": {
+							"label": "🌏 Travel Itinerary"
+						},
+						"filter_type": {
+							"label": "Compound filter"
+						},
+						"compound_filter": {
+							"or": [
+								{
+									"property": {
+										"label": "Status"
+									},
+									"status": {
+										"equals": {
+											"label": "🟢 Current"
+										}
+									}
+								},
+								{
+									"property": {
+										"label": "Status"
+									},
+									"status": {
+										"equals": {
+											"label": "🟡 Next Stop"
+										}
+									}
+								},
+								{
+									"property": {
+										"label": "Status"
+									},
+									"status": {
+										"equals": {
+											"label": "⚪ Upcoming"
+										}
+									}
+								}
+							]
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "search_type",
+						"type": "select",
+						"label": "Search Type",
+						"required": true,
+						"validate": {
+							"enum": [
+								"page_search",
+								"database_search"
+							]
+						}
+					},
+					{
+						"name": "database_id",
+						"type": "select",
+						"label": "Database ID",
+						"required": true
+					},
+					{
+						"name": "filter_type",
+						"type": "select",
+						"label": "Filter Type",
+						"required": true,
+						"validate": {
+							"enum": [
+								"none",
+								"single",
+								"compound"
+							]
+						}
+					},
+					{
+						"name": "compound_filter",
+						"type": "collection",
+						"label": "Filter",
+						"spec": [
+							{
+								"name": "and",
+								"type": "array",
+								"label": "AND",
+								"spec": [
+									{
+										"name": "property",
+										"type": "text",
+										"label": "Property",
+										"required": true
+									},
+									{
+										"name": "checkbox",
+										"type": "collection",
+										"label": "Checkbox",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "boolean",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "boolean",
+												"label": "Is not equal to"
+											}
+										]
+									},
+									{
+										"name": "created_by",
+										"type": "collection",
+										"label": "Created By",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "created_time",
+										"type": "collection",
+										"label": "Created Time",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "date",
+												"label": "Is equal to"
+											},
+											{
+												"name": "before",
+												"type": "date",
+												"label": "Is before"
+											},
+											{
+												"name": "after",
+												"type": "date",
+												"label": "Is after"
+											},
+											{
+												"name": "on_or_before",
+												"type": "date",
+												"label": "Is on or before"
+											},
+											{
+												"name": "on_or_after",
+												"type": "date",
+												"label": "Is on or after"
+											},
+											{
+												"name": "past_week",
+												"type": "collection",
+												"label": "In the past week"
+											},
+											{
+												"name": "past_month",
+												"type": "collection",
+												"label": "In the past month"
+											},
+											{
+												"name": "past_year",
+												"type": "collection",
+												"label": "In the past year"
+											},
+											{
+												"name": "next_week",
+												"type": "collection",
+												"label": "In the next week"
+											},
+											{
+												"name": "next_month",
+												"type": "collection",
+												"label": "In the next month"
+											},
+											{
+												"name": "next_year",
+												"type": "collection",
+												"label": "In the next year"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "date",
+										"type": "collection",
+										"label": "Date",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "date",
+												"label": "Is equal to"
+											},
+											{
+												"name": "before",
+												"type": "date",
+												"label": "Is before"
+											},
+											{
+												"name": "after",
+												"type": "date",
+												"label": "Is after"
+											},
+											{
+												"name": "on_or_before",
+												"type": "date",
+												"label": "Is on or before"
+											},
+											{
+												"name": "on_or_after",
+												"type": "date",
+												"label": "Is on or after"
+											},
+											{
+												"name": "past_week",
+												"type": "collection",
+												"label": "In the past week"
+											},
+											{
+												"name": "past_month",
+												"type": "collection",
+												"label": "In the past month"
+											},
+											{
+												"name": "past_year",
+												"type": "collection",
+												"label": "In the past year"
+											},
+											{
+												"name": "next_week",
+												"type": "collection",
+												"label": "In the next week"
+											},
+											{
+												"name": "next_month",
+												"type": "collection",
+												"label": "In the next month"
+											},
+											{
+												"name": "next_year",
+												"type": "collection",
+												"label": "In the next year"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "files",
+										"type": "collection",
+										"label": "Files",
+										"spec": [
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "formula",
+										"type": "collection",
+										"label": "Formula",
+										"spec": [
+											{
+												"name": "checkbox",
+												"type": "collection",
+												"label": "Checkbox",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "boolean",
+														"label": "Is equal to"
+													},
+													{
+														"name": "does_not_equal",
+														"type": "boolean",
+														"label": "Is not equal to"
+													}
+												]
+											},
+											{
+												"name": "date",
+												"type": "collection",
+												"label": "Date",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "date",
+														"label": "Is equal to"
+													},
+													{
+														"name": "before",
+														"type": "date",
+														"label": "Is before"
+													},
+													{
+														"name": "after",
+														"type": "date",
+														"label": "Is after"
+													},
+													{
+														"name": "on_or_before",
+														"type": "date",
+														"label": "Is on or before"
+													},
+													{
+														"name": "on_or_after",
+														"type": "date",
+														"label": "Is on or after"
+													},
+													{
+														"name": "past_week",
+														"type": "collection",
+														"label": "In the past week"
+													},
+													{
+														"name": "past_month",
+														"type": "collection",
+														"label": "In the past month"
+													},
+													{
+														"name": "past_year",
+														"type": "collection",
+														"label": "In the past year"
+													},
+													{
+														"name": "next_week",
+														"type": "collection",
+														"label": "In the next week"
+													},
+													{
+														"name": "next_month",
+														"type": "collection",
+														"label": "In the next month"
+													},
+													{
+														"name": "next_year",
+														"type": "collection",
+														"label": "In the next year"
+													},
+													{
+														"name": "is_empty",
+														"type": "boolean",
+														"label": "Is empty"
+													},
+													{
+														"name": "is_not_empty",
+														"type": "boolean",
+														"label": "Is not empty"
+													}
+												]
+											},
+											{
+												"name": "number",
+												"type": "collection",
+												"label": "Number",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "number",
+														"label": "Is equal to"
+													},
+													{
+														"name": "does_not_equal",
+														"type": "number",
+														"label": "Is not equal to"
+													},
+													{
+														"name": "greater_than",
+														"type": "number",
+														"label": "Is greater than"
+													},
+													{
+														"name": "less_than",
+														"type": "number",
+														"label": "Is less than"
+													},
+													{
+														"name": "greater_than_or_equal_to",
+														"type": "number",
+														"label": "Is greater than or equal to"
+													},
+													{
+														"name": "less_than_or_equal_to",
+														"type": "number",
+														"label": "Is less than or equal to"
+													},
+													{
+														"name": "is_empty",
+														"type": "boolean",
+														"label": "Is empty"
+													},
+													{
+														"name": "is_not_empty",
+														"type": "boolean",
+														"label": "Is not empty"
+													}
+												]
+											},
+											{
+												"name": "string",
+												"type": "collection",
+												"label": "String",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "text",
+														"label": "Is equal to"
+													},
+													{
+														"name": "does_not_equal",
+														"type": "text",
+														"label": "Is not equal to"
+													},
+													{
+														"name": "contains",
+														"type": "text",
+														"label": "Contains"
+													},
+													{
+														"name": "does_not_contain",
+														"type": "text",
+														"label": "Does not contain"
+													},
+													{
+														"name": "starts_with",
+														"type": "text",
+														"label": "Starts with"
+													},
+													{
+														"name": "ends_with",
+														"type": "text",
+														"label": "Ends with"
+													},
+													{
+														"name": "is_empty",
+														"type": "boolean",
+														"label": "Is empty"
+													},
+													{
+														"name": "is_not_empty",
+														"type": "boolean",
+														"label": "Is not empty"
+													}
+												]
+											}
+										]
+									},
+									{
+										"name": "last_edited_by",
+										"type": "collection",
+										"label": "Last Edited By",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "last_edited_time",
+										"type": "collection",
+										"label": "Last Edited Time",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "date",
+												"label": "Is equal to"
+											},
+											{
+												"name": "before",
+												"type": "date",
+												"label": "Is before"
+											},
+											{
+												"name": "after",
+												"type": "date",
+												"label": "Is after"
+											},
+											{
+												"name": "on_or_before",
+												"type": "date",
+												"label": "Is on or before"
+											},
+											{
+												"name": "on_or_after",
+												"type": "date",
+												"label": "Is on or after"
+											},
+											{
+												"name": "past_week",
+												"type": "collection",
+												"label": "In the past week"
+											},
+											{
+												"name": "past_month",
+												"type": "collection",
+												"label": "In the past month"
+											},
+											{
+												"name": "past_year",
+												"type": "collection",
+												"label": "In the past year"
+											},
+											{
+												"name": "next_week",
+												"type": "collection",
+												"label": "In the next week"
+											},
+											{
+												"name": "next_month",
+												"type": "collection",
+												"label": "In the next month"
+											},
+											{
+												"name": "next_year",
+												"type": "collection",
+												"label": "In the next year"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "multi_select",
+										"type": "collection",
+										"label": "Multi select",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "number",
+										"type": "collection",
+										"label": "Number",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "number",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "number",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "greater_than",
+												"type": "number",
+												"label": "Is greater than"
+											},
+											{
+												"name": "less_than",
+												"type": "number",
+												"label": "Is less than"
+											},
+											{
+												"name": "greater_than_or_equal_to",
+												"type": "number",
+												"label": "Is greater than or equal to"
+											},
+											{
+												"name": "less_than_or_equal_to",
+												"type": "number",
+												"label": "Is less than or equal to"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "people",
+										"type": "collection",
+										"label": "People",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "phone_number",
+										"type": "collection",
+										"label": "Phone Number",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "relation",
+										"type": "collection",
+										"label": "Relation",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "rich_text",
+										"type": "collection",
+										"label": "Rich Text",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "select",
+										"type": "collection",
+										"label": "Select",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "status",
+										"type": "collection",
+										"label": "Status",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "title",
+										"type": "collection",
+										"label": "Title",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "url",
+										"type": "collection",
+										"label": "URL",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									}
+								]
+							},
+							{
+								"name": "or",
+								"type": "array",
+								"label": "OR",
+								"spec": [
+									{
+										"name": "property",
+										"type": "text",
+										"label": "Property",
+										"required": true
+									},
+									{
+										"name": "checkbox",
+										"type": "collection",
+										"label": "Checkbox",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "boolean",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "boolean",
+												"label": "Is not equal to"
+											}
+										]
+									},
+									{
+										"name": "created_by",
+										"type": "collection",
+										"label": "Created By",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "created_time",
+										"type": "collection",
+										"label": "Created Time",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "date",
+												"label": "Is equal to"
+											},
+											{
+												"name": "before",
+												"type": "date",
+												"label": "Is before"
+											},
+											{
+												"name": "after",
+												"type": "date",
+												"label": "Is after"
+											},
+											{
+												"name": "on_or_before",
+												"type": "date",
+												"label": "Is on or before"
+											},
+											{
+												"name": "on_or_after",
+												"type": "date",
+												"label": "Is on or after"
+											},
+											{
+												"name": "past_week",
+												"type": "collection",
+												"label": "In the past week"
+											},
+											{
+												"name": "past_month",
+												"type": "collection",
+												"label": "In the past month"
+											},
+											{
+												"name": "past_year",
+												"type": "collection",
+												"label": "In the past year"
+											},
+											{
+												"name": "next_week",
+												"type": "collection",
+												"label": "In the next week"
+											},
+											{
+												"name": "next_month",
+												"type": "collection",
+												"label": "In the next month"
+											},
+											{
+												"name": "next_year",
+												"type": "collection",
+												"label": "In the next year"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "date",
+										"type": "collection",
+										"label": "Date",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "date",
+												"label": "Is equal to"
+											},
+											{
+												"name": "before",
+												"type": "date",
+												"label": "Is before"
+											},
+											{
+												"name": "after",
+												"type": "date",
+												"label": "Is after"
+											},
+											{
+												"name": "on_or_before",
+												"type": "date",
+												"label": "Is on or before"
+											},
+											{
+												"name": "on_or_after",
+												"type": "date",
+												"label": "Is on or after"
+											},
+											{
+												"name": "past_week",
+												"type": "collection",
+												"label": "In the past week"
+											},
+											{
+												"name": "past_month",
+												"type": "collection",
+												"label": "In the past month"
+											},
+											{
+												"name": "past_year",
+												"type": "collection",
+												"label": "In the past year"
+											},
+											{
+												"name": "next_week",
+												"type": "collection",
+												"label": "In the next week"
+											},
+											{
+												"name": "next_month",
+												"type": "collection",
+												"label": "In the next month"
+											},
+											{
+												"name": "next_year",
+												"type": "collection",
+												"label": "In the next year"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "files",
+										"type": "collection",
+										"label": "Files",
+										"spec": [
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "formula",
+										"type": "collection",
+										"label": "Formula",
+										"spec": [
+											{
+												"name": "checkbox",
+												"type": "collection",
+												"label": "Checkbox",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "boolean",
+														"label": "Is equal to"
+													},
+													{
+														"name": "does_not_equal",
+														"type": "boolean",
+														"label": "Is not equal to"
+													}
+												]
+											},
+											{
+												"name": "date",
+												"type": "collection",
+												"label": "Date",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "date",
+														"label": "Is equal to"
+													},
+													{
+														"name": "before",
+														"type": "date",
+														"label": "Is before"
+													},
+													{
+														"name": "after",
+														"type": "date",
+														"label": "Is after"
+													},
+													{
+														"name": "on_or_before",
+														"type": "date",
+														"label": "Is on or before"
+													},
+													{
+														"name": "on_or_after",
+														"type": "date",
+														"label": "Is on or after"
+													},
+													{
+														"name": "past_week",
+														"type": "collection",
+														"label": "In the past week"
+													},
+													{
+														"name": "past_month",
+														"type": "collection",
+														"label": "In the past month"
+													},
+													{
+														"name": "past_year",
+														"type": "collection",
+														"label": "In the past year"
+													},
+													{
+														"name": "next_week",
+														"type": "collection",
+														"label": "In the next week"
+													},
+													{
+														"name": "next_month",
+														"type": "collection",
+														"label": "In the next month"
+													},
+													{
+														"name": "next_year",
+														"type": "collection",
+														"label": "In the next year"
+													},
+													{
+														"name": "is_empty",
+														"type": "boolean",
+														"label": "Is empty"
+													},
+													{
+														"name": "is_not_empty",
+														"type": "boolean",
+														"label": "Is not empty"
+													}
+												]
+											},
+											{
+												"name": "number",
+												"type": "collection",
+												"label": "Number",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "number",
+														"label": "Is equal to"
+													},
+													{
+														"name": "does_not_equal",
+														"type": "number",
+														"label": "Is not equal to"
+													},
+													{
+														"name": "greater_than",
+														"type": "number",
+														"label": "Is greater than"
+													},
+													{
+														"name": "less_than",
+														"type": "number",
+														"label": "Is less than"
+													},
+													{
+														"name": "greater_than_or_equal_to",
+														"type": "number",
+														"label": "Is greater than or equal to"
+													},
+													{
+														"name": "less_than_or_equal_to",
+														"type": "number",
+														"label": "Is less than or equal to"
+													},
+													{
+														"name": "is_empty",
+														"type": "boolean",
+														"label": "Is empty"
+													},
+													{
+														"name": "is_not_empty",
+														"type": "boolean",
+														"label": "Is not empty"
+													}
+												]
+											},
+											{
+												"name": "string",
+												"type": "collection",
+												"label": "String",
+												"spec": [
+													{
+														"name": "equals",
+														"type": "text",
+														"label": "Is equal to"
+													},
+													{
+														"name": "does_not_equal",
+														"type": "text",
+														"label": "Is not equal to"
+													},
+													{
+														"name": "contains",
+														"type": "text",
+														"label": "Contains"
+													},
+													{
+														"name": "does_not_contain",
+														"type": "text",
+														"label": "Does not contain"
+													},
+													{
+														"name": "starts_with",
+														"type": "text",
+														"label": "Starts with"
+													},
+													{
+														"name": "ends_with",
+														"type": "text",
+														"label": "Ends with"
+													},
+													{
+														"name": "is_empty",
+														"type": "boolean",
+														"label": "Is empty"
+													},
+													{
+														"name": "is_not_empty",
+														"type": "boolean",
+														"label": "Is not empty"
+													}
+												]
+											}
+										]
+									},
+									{
+										"name": "last_edited_by",
+										"type": "collection",
+										"label": "Last Edited By",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "last_edited_time",
+										"type": "collection",
+										"label": "Last Edited Time",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "date",
+												"label": "Is equal to"
+											},
+											{
+												"name": "before",
+												"type": "date",
+												"label": "Is before"
+											},
+											{
+												"name": "after",
+												"type": "date",
+												"label": "Is after"
+											},
+											{
+												"name": "on_or_before",
+												"type": "date",
+												"label": "Is on or before"
+											},
+											{
+												"name": "on_or_after",
+												"type": "date",
+												"label": "Is on or after"
+											},
+											{
+												"name": "past_week",
+												"type": "collection",
+												"label": "In the past week"
+											},
+											{
+												"name": "past_month",
+												"type": "collection",
+												"label": "In the past month"
+											},
+											{
+												"name": "past_year",
+												"type": "collection",
+												"label": "In the past year"
+											},
+											{
+												"name": "next_week",
+												"type": "collection",
+												"label": "In the next week"
+											},
+											{
+												"name": "next_month",
+												"type": "collection",
+												"label": "In the next month"
+											},
+											{
+												"name": "next_year",
+												"type": "collection",
+												"label": "In the next year"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "multi_select",
+										"type": "collection",
+										"label": "Multi select",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "number",
+										"type": "collection",
+										"label": "Number",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "number",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "number",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "greater_than",
+												"type": "number",
+												"label": "Is greater than"
+											},
+											{
+												"name": "less_than",
+												"type": "number",
+												"label": "Is less than"
+											},
+											{
+												"name": "greater_than_or_equal_to",
+												"type": "number",
+												"label": "Is greater than or equal to"
+											},
+											{
+												"name": "less_than_or_equal_to",
+												"type": "number",
+												"label": "Is less than or equal to"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "people",
+										"type": "collection",
+										"label": "People",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "phone_number",
+										"type": "collection",
+										"label": "Phone Number",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "relation",
+										"type": "collection",
+										"label": "Relation",
+										"spec": [
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "rich_text",
+										"type": "collection",
+										"label": "Rich Text",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "select",
+										"type": "collection",
+										"label": "Select",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "status",
+										"type": "collection",
+										"label": "Status",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "title",
+										"type": "collection",
+										"label": "Title",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									},
+									{
+										"name": "url",
+										"type": "collection",
+										"label": "URL",
+										"spec": [
+											{
+												"name": "equals",
+												"type": "text",
+												"label": "Is equal to"
+											},
+											{
+												"name": "does_not_equal",
+												"type": "text",
+												"label": "Is not equal to"
+											},
+											{
+												"name": "contains",
+												"type": "text",
+												"label": "Contains"
+											},
+											{
+												"name": "does_not_contain",
+												"type": "text",
+												"label": "Does not contain"
+											},
+											{
+												"name": "starts_with",
+												"type": "text",
+												"label": "Starts with"
+											},
+											{
+												"name": "ends_with",
+												"type": "text",
+												"label": "Ends with"
+											},
+											{
+												"name": "is_empty",
+												"type": "boolean",
+												"label": "Is empty"
+											},
+											{
+												"name": "is_not_empty",
+												"type": "boolean",
+												"label": "Is not empty"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": 13,
+			"module": "http:MakeRequest",
+			"version": 4,
+			"parameters": {
+				"tlsType": "",
+				"authenticationType": "noAuth"
+			},
+			"mapper": {
+				"qs": [
+					{
+						"name": "Authorization",
+						"value": "{{CWA_API_KEY}}"
+					}
+				],
+				"url": "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-002",
+				"method": "get",
+				"headers": [],
+				"bodyType": "raw",
+				"parseResponse": true,
+				"decompress": true,
+				"followRedirect": true,
+				"useRequestPayload": false,
+				"shareCookies": false,
+				"rejectUnauthorized": true,
+				"useMutualTls": false
+			},
+			"metadata": {
+				"designer": {
+					"x": 863,
+					"y": 12
+				},
+				"restore": {
+					"parameters": {
+						"authenticationType": {
+							"label": "No authentication"
+						}
+					},
+					"mapper": {
+						"bodyType": {
+							"label": "Raw"
+						},
+						"method": {
+							"label": "GET"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "url",
+						"type": "url",
+						"label": "URL",
+						"required": true
+					},
+					{
+						"name": "method",
+						"type": "select",
+						"label": "Method",
+						"required": true,
+						"validate": {
+							"enum": [
+								"get",
+								"head",
+								"post",
+								"put",
+								"delete",
+								"patch"
+							]
+						}
+					},
+					{
+						"name": "headers",
+						"type": "array",
+						"label": "Headers",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "qs",
+						"type": "array",
+						"label": "Query String",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "bodyType",
+						"type": "select",
+						"label": "Body type",
+						"validate": {
+							"enum": [
+								"raw",
+								"x_www_form_urlencoded",
+								"form_data"
+							]
+						}
+					},
+					{
+						"name": "parseResponse",
+						"type": "boolean",
+						"label": "Parse response",
+						"default": true
+					},
+					{
+						"name": "decompress",
+						"type": "boolean",
+						"label": "Decompress",
+						"default": true
+					},
+					{
+						"name": "followRedirect",
+						"type": "boolean",
+						"label": "Follow redirect",
+						"default": true
+					},
+					{
+						"name": "useRequestPayload",
+						"type": "boolean",
+						"label": "Use Request Payload",
+						"default": false
+					},
+					{
+						"name": "shareCookies",
+						"type": "boolean",
+						"label": "Share cookies with other HTTP modules",
+						"default": false
+					},
+					{
+						"name": "rejectUnauthorized",
+						"type": "boolean",
+						"label": "Evaluate all response status codes (2xx and 3xx)",
+						"default": true
+					},
+					{
+						"name": "useMutualTls",
+						"type": "boolean",
+						"label": "Use Mutual TLS",
+						"default": false
+					}
+				]
+			}
+		},
+		{
+			"id": 14,
+			"module": "builtin:BasicFeeder",
+			"version": 1,
+			"parameters": {},
+			"mapper": {
+				"array": "{{13.data.records.record.location}}"
+			},
+			"metadata": {
+				"designer": {
+					"x": 1152,
+					"y": 12
+				},
+				"restore": {},
+				"expect": [
+					{
+						"name": "array",
+						"type": "array",
+						"label": "Array",
+						"required": true
+					}
+				]
+			}
+		},
+		{
+			"id": 15,
+			"module": "builtin:BasicRouter",
+			"version": 1,
+			"parameters": {},
+			"mapper": {},
+			"metadata": {
+				"designer": {
+					"x": 1432,
+					"y": 8
+				},
+				"restore": {},
+				"expect": []
+			},
+			"routes": [
+				{
+					"flow": [
+						{
+							"id": 16,
+							"module": "builtin:BasicFeeder",
+							"version": 1,
+							"parameters": {},
+							"mapper": {
+								"array": "{{17}}"
+							},
+							"metadata": {
+								"designer": {
+									"x": 1718,
+									"y": -118
+								},
+								"restore": {},
+								"expect": [
+									{
+										"name": "array",
+										"type": "array",
+										"label": "Array",
+										"required": true
+									}
+								]
+							}
+						},
+						{
+							"id": 20,
+							"module": "notion:updateADatabaseItem",
+							"version": 1,
+							"parameters": {
+								"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+							},
+							"mapper": {
+								"page_id": "{{18.id}}",
+								"database_id": "{{NOTION_HAZARDS_DATABASE_ID}}",
+								"database_fields": {
+									"f_3A%3Fs": "{{parseDate(14.hazardConditions.hazards.hazard.validTime.startTime; \"YYYY-MM-DDTHH:mm:ssZ\")}}",
+									"uP~%5C": "{{parseDate(14.hazardConditions.hazards.hazard.validTime.endTime; \"YYYY-MM-DDTHH:mm:ssZ\")}}"
+								}
+							},
+							"metadata": {
+								"designer": {
+									"x": 1988,
+									"y": -120
+								},
+								"restore": {
+									"parameters": {
+										"account": {
+											"label": "My Notion connection"
+										}
+									},
+									"mapper": {
+										"database_id": {
+											"label": "⚠️ Hazard Status"
+										}
+									}
+								},
+								"expect": [
+									{
+										"name": "database_id",
+										"type": "select",
+										"label": "Database ID",
+										"required": true
+									},
+									{
+										"name": "page_id",
+										"type": "text",
+										"label": "Page ID",
+										"required": true
+									},
+									{
+										"name": "database_fields",
+										"type": "collection",
+										"label": "Database Fields",
+										"spec": [
+											{
+												"name": "kWyA",
+												"type": "date",
+												"label": "Typhoon Start"
+											},
+											{
+												"name": "oA%3BA",
+												"type": "date",
+												"label": "Typhoon End"
+											},
+											{
+												"name": "i%3EIn",
+												"type": "number",
+												"label": "Storm Level"
+											},
+											{
+												"name": "f_3A%3Fs",
+												"type": "date",
+												"label": "Rain Start"
+											},
+											{
+												"name": "uP~%5C",
+												"type": "date",
+												"label": "Rain End"
+											}
+										]
+									}
+								]
+							}
+						}
+					],
+					"filter": {
+						"name": "Relevant Location Filter",
+						"formula": "{{16.properties.Location.name = if(14.locationName = \"臺北市\"; \"Taipei\"; if(14.locationName = \"嘉義縣\"; \"Alishan\"; if(14.locationName = \"屏東縣\"; \"Xiaoliuqiu\"; if(14.locationName = \"高雄市\"; \"Kaohsiung\"; if(14.locationName = \"花蓮縣\"; \"Hualien\"; \"\")))))}}"
+					}
+				}
+			]
+		}
+	],
+	"metadata": {
+		"instant": true,
+		"version": 1,
+		"scenario": {
+			"roundtrips": 1,
+			"maxErrors": 3,
+			"autoCommit": true,
+			"autoCommitTriggerLast": true,
+			"sequential": false,
+			"slots": 1,
+			"confidential": false,
+			"dataloss": false,
+			"dlq": false,
+			"freshVariables": false
+		},
+		"designer": {
+			"orphans": []
+		},
+		"zone": "eu1.make.com"
+	}
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Taiwan Weather Dashboard Widget</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #191919; overflow: hidden; }
+    #widget { width: 100%; overflow: hidden; }
+    #widget iframe {
+      width: 125%;
+      height: 600px;
+      border: 0;
+      transform: scale(0.8);
+      transform-origin: 0 0;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="widget"></div>
+
+  <script>
+    // Mapped Meteoblue Widget URLs per Location (Sanitized for Repository)
+    const widgets = {
+      taipei: "https://www.meteoblue.com/en/weather/widget/three/taipei_taiwan_1668341?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}",
+      alishan: "https://www.meteoblue.com/en/weather/widget/three/alishan_taiwan_1679029?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}",
+      xiaoliuqiu: "https://www.meteoblue.com/en/weather/widget/three/baishawei_taiwan_1671114?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}",
+      kaohsiung: "https://www.meteoblue.com/en/weather/widget/three/kaohsiung-city_taiwan_1673820?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}",
+      hualien: "https://www.meteoblue.com/en/weather/widget/three/hualien-city_taiwan_1674504?geoloc=fixed&nocurrent=1&noforecast=0&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&days=4&layout=dark&user_key={{YOUR_USER_KEY}}&embed_key={{YOUR_EMBED_KEY}}&sig={{YOUR_SIG}}"
+    };
+
+    // Calculate Current Date in Target Timezone (Asia/Taipei)
+    function taipeiDate() {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date());
+      const values = {};
+      for (const part of parts) {
+        if (part.type !== "literal") values[part.type] = part.value;
+      }
+      return `${values.year}-${values.month}-${values.day}`;
+    }
+
+    // Schedule-Based Location Resolver
+    function locationForDate(date) {
+      if (date >= "2026-10-02" && date <= "2026-10-07") return "taipei";
+      if (date >= "2026-10-08" && date <= "2026-10-10") return "alishan";
+      if (date >= "2026-10-11" && date <= "2026-10-13") return "xiaoliuqiu";
+      if (date === "2026-10-14") return "kaohsiung";
+      if (date >= "2026-10-15" && date <= "2026-10-18") return "hualien";
+      if (date >= "2026-10-19" && date <= "2026-10-21") return "taipei";
+      return "taipei";
+    }
+
+    // Resolve Location via URL Parameter Override or Timezone Schedule
+    function selectedLocation() {
+      const params = new URLSearchParams(window.location.search);
+
+      const override = params.get("ort")?.toLowerCase();
+      if (override && widgets[override]) return override;
+
+      return locationForDate(taipeiDate());
+    }
+
+    // Render Widget Dynamic iFrame
+    function renderWidget() {
+      const location = selectedLocation();
+      const iframe = document.createElement("iframe");
+      iframe.src = widgets[location];
+      iframe.frameBorder = "0";
+      iframe.scrolling = "no";
+      iframe.allowTransparency = "true";
+      iframe.sandbox = "allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox";
+      document.getElementById("widget").replaceChildren(iframe);
+    }
+
+    renderWidget();
+
+    let lastLocation = selectedLocation();
+
+    // Polling Loop for Automatic Schedule Switching
+    setInterval(() => {
+      const currentLocation = selectedLocation();
+
+      if (currentLocation !== lastLocation) {
+        lastLocation = currentLocation;
+        renderWidget();
+      }
+    }, 60000);
+  </script>
+</body>
+</html>

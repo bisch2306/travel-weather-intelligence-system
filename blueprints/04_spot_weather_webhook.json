@@ -1,0 +1,220 @@
+{
+	"name": "Taiwan - Spot Weather Webhook Listener",
+	"flow": [
+		{
+			"id": 1,
+			"module": "gateway:CustomWebHook",
+			"version": 1,
+			"parameters": {
+				"hook": "{{YOUR_SPOT_WEATHER_WEBHOOK_ID}}",
+				"maxResults": 1
+			},
+			"mapper": {},
+			"metadata": {
+				"designer": {
+					"x": 0,
+					"y": 0
+				},
+				"restore": {},
+				"parameters": [
+					{
+						"name": "hook",
+						"type": "hook:gateway",
+						"label": "Webhook",
+						"required": true
+					},
+					{
+						"name": "maxResults",
+						"type": "uinteger",
+						"label": "Max number of returned results"
+					}
+				]
+			}
+		},
+		{
+			"id": 2,
+			"module": "http:MakeRequest",
+			"version": 4,
+			"parameters": {
+				"tlsType": "",
+				"authenticationType": "noAuth"
+			},
+			"mapper": {
+				"url": "https://eu1.make.com/api/v2/scenarios/{{YOUR_SCENARIO_ID}}/run",
+				"method": "post",
+				"headers": [
+					{
+						"name": "Authorization",
+						"value": "Token {{YOUR_MAKE_API_TOKEN}}"
+					}
+				],
+				"qs": [],
+				"bodyType": "raw",
+				"parseResponse": true,
+				"decompress": true,
+				"followRedirect": true,
+				"useRequestPayload": false,
+				"shareCookies": false,
+				"rejectUnauthorized": true,
+				"useMutualTls": false
+			},
+			"metadata": {
+				"designer": {
+					"x": 300,
+					"y": 0
+				},
+				"restore": {
+					"parameters": {
+						"authenticationType": {
+							"label": "No authentication"
+						}
+					},
+					"mapper": {
+						"bodyType": {
+							"label": "Raw"
+						},
+						"method": {
+							"label": "POST"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "url",
+						"type": "url",
+						"label": "URL",
+						"required": true
+					},
+					{
+						"name": "method",
+						"type": "select",
+						"label": "Method",
+						"required": true,
+						"validate": {
+							"enum": [
+								"get",
+								"head",
+								"post",
+								"put",
+								"delete",
+								"patch"
+							]
+						}
+					},
+					{
+						"name": "headers",
+						"type": "array",
+						"label": "Headers",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "qs",
+						"type": "array",
+						"label": "Query String",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "bodyType",
+						"type": "select",
+						"label": "Body type",
+						"validate": {
+							"enum": [
+								"raw",
+								"x_www_form_urlencoded",
+								"form_data"
+							]
+						}
+					},
+					{
+						"name": "parseResponse",
+						"type": "boolean",
+						"label": "Parse response",
+						"default": true
+					},
+					{
+						"name": "decompress",
+						"type": "boolean",
+						"label": "Decompress",
+						"default": true
+					},
+					{
+						"name": "followRedirect",
+						"type": "boolean",
+						"label": "Follow redirect",
+						"default": true
+					},
+					{
+						"name": "useRequestPayload",
+						"type": "boolean",
+						"label": "Use Request Payload",
+						"default": false
+					},
+					{
+						"name": "shareCookies",
+						"type": "boolean",
+						"label": "Share cookies with other HTTP modules",
+						"default": false
+					},
+					{
+						"name": "rejectUnauthorized",
+						"type": "boolean",
+						"label": "Evaluate all response status codes (2xx and 3xx)",
+						"default": true
+					},
+					{
+						"name": "useMutualTls",
+						"type": "boolean",
+						"label": "Use Mutual TLS",
+						"default": false
+					}
+				]
+			}
+		}
+	],
+	"metadata": {
+		"instant": true,
+		"version": 1,
+		"scenario": {
+			"roundtrips": 1,
+			"maxErrors": 3,
+			"autoCommit": true,
+			"autoCommitTriggerLast": true,
+			"sequential": false,
+			"slots": 1,
+			"confidential": false,
+			"dataloss": false,
+			"dlq": false,
+			"freshVariables": false
+		},
+		"designer": {
+			"orphans": []
+		},
+		"zone": "eu1.make.com"
+	}
+}

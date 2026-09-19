@@ -1,0 +1,688 @@
+{
+	"name": "Taiwan - Spot Weather & Typhoon Evaluation Pipeline",
+	"flow": [
+		{
+			"id": 1,
+			"module": "notion:getAPage",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"page_id": "{{YOUR_NOTION_MAIN_PAGE_ID}}"
+			},
+			"metadata": {
+				"designer": {
+					"x": -313,
+					"y": -165
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "page_id",
+						"type": "text",
+						"label": "Page ID",
+						"required": true
+					}
+				]
+			}
+		},
+		{
+			"id": 2,
+			"module": "notion:updateADatabaseItem",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"page_id": "{{YOUR_NOTION_MAIN_PAGE_ID}}",
+				"database_id": "{{NOTION_MAIN_DATABASE_ID}}",
+				"database_fields": {
+					"Forecast-MAX": null,
+					"HazardLevel": null
+				}
+			},
+			"metadata": {
+				"designer": {
+					"x": -53,
+					"y": -167
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					},
+					"mapper": {
+						"database_id": {
+							"label": "🌏 Travel Itinerary"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "database_id",
+						"type": "select",
+						"label": "Database ID",
+						"required": true
+					},
+					{
+						"name": "page_id",
+						"type": "text",
+						"label": "Page ID",
+						"required": true
+					},
+					{
+						"name": "database_fields",
+						"type": "collection",
+						"label": "Database Fields",
+						"spec": [
+							{
+								"name": "Forecast-MAX",
+								"type": "number",
+								"label": "Forecast-MAX"
+							},
+							{
+								"name": "HazardLevel",
+								"type": "number",
+								"label": "Hazard Level"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": 3,
+			"module": "http:MakeRequest",
+			"version": 4,
+			"parameters": {
+				"tlsType": "",
+				"authenticationType": "noAuth"
+			},
+			"mapper": {
+				"qs": [
+					{
+						"name": "Authorization",
+						"value": "{{CWA_API_KEY}}"
+					},
+					{
+						"name": "StationId",
+						"value": "{{1.properties.StationID.formula.string}}"
+					}
+				],
+				"url": "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0003-001",
+				"method": "get",
+				"headers": [],
+				"bodyType": "raw",
+				"parseResponse": true,
+				"decompress": true,
+				"followRedirect": true,
+				"useRequestPayload": false,
+				"shareCookies": false,
+				"rejectUnauthorized": true,
+				"useMutualTls": false
+			},
+			"metadata": {
+				"designer": {
+					"x": 218,
+					"y": -168
+				},
+				"restore": {
+					"parameters": {
+						"authenticationType": {
+							"label": "No authentication"
+						}
+					},
+					"mapper": {
+						"bodyType": {
+							"label": "Raw"
+						},
+						"method": {
+							"label": "GET"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "url",
+						"type": "url",
+						"label": "URL",
+						"required": true
+					},
+					{
+						"name": "method",
+						"type": "select",
+						"label": "Method",
+						"required": true,
+						"validate": {
+							"enum": [
+								"get",
+								"head",
+								"post",
+								"put",
+								"delete",
+								"patch"
+							]
+						}
+					},
+					{
+						"name": "headers",
+						"type": "array",
+						"label": "Headers",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "qs",
+						"type": "array",
+						"label": "Query String",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "bodyType",
+						"type": "select",
+						"label": "Body type",
+						"validate": {
+							"enum": [
+								"raw",
+								"x_www_form_urlencoded",
+								"form_data"
+							]
+						}
+					},
+					{
+						"name": "parseResponse",
+						"type": "boolean",
+						"label": "Parse response",
+						"default": true
+					},
+					{
+						"name": "decompress",
+						"type": "boolean",
+						"label": "Decompress",
+						"default": true
+					},
+					{
+						"name": "followRedirect",
+						"type": "boolean",
+						"label": "Follow redirect",
+						"default": true
+					},
+					{
+						"name": "useRequestPayload",
+						"type": "boolean",
+						"label": "Use Request Payload",
+						"default": false
+					},
+					{
+						"name": "shareCookies",
+						"type": "boolean",
+						"label": "Share cookies with other HTTP modules",
+						"default": false
+					},
+					{
+						"name": "rejectUnauthorized",
+						"type": "boolean",
+						"label": "Evaluate all response status codes (2xx and 3xx)",
+						"default": true
+					},
+					{
+						"name": "useMutualTls",
+						"type": "boolean",
+						"label": "Use Mutual TLS",
+						"default": false
+					}
+				]
+			}
+		},
+		{
+			"id": 4,
+			"module": "util:SetVariable",
+			"version": 1,
+			"parameters": {},
+			"mapper": {
+				"name": "WeatherText",
+				"value": "{{3.data.records.Station[1].WeatherElement.Weather}}"
+			},
+			"metadata": {
+				"designer": {
+					"x": 483,
+					"y": -169
+				},
+				"restore": {},
+				"expect": [
+					{
+						"name": "name",
+						"type": "text",
+						"label": "Variable name",
+						"required": true
+					},
+					{
+						"name": "value",
+						"type": "any",
+						"label": "Variable value"
+					}
+				]
+			}
+		},
+		{
+			"id": 5,
+			"module": "util:SetVariable",
+			"version": 1,
+			"parameters": {},
+			"mapper": {
+				"name": "WeatherSeverityLevel",
+				"value": "{{if(contains(4.value; \"雷\") or contains(4.value; \"豪雨\") or contains(4.value; \"大雨\"); 4; if(contains(4.value; \"短暫\") or contains(4.value; \"陣雨\") or contains(4.value; \"小雨\"); 3; if(contains(4.value; \"陰\") or contains(4.value; \"雲\"); 2; 1)))}}"
+			},
+			"metadata": {
+				"designer": {
+					"x": 753,
+					"y": -168
+				},
+				"restore": {},
+				"expect": [
+					{
+						"name": "name",
+						"type": "text",
+						"label": "Variable name",
+						"required": true
+					},
+					{
+						"name": "value",
+						"type": "any",
+						"label": "Variable value"
+					}
+				]
+			}
+		},
+		{
+			"id": 6,
+			"module": "notion:updateADatabaseItem",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"page_id": "{{YOUR_NOTION_MAIN_PAGE_ID}}",
+				"database_id": "{{NOTION_MAIN_DATABASE_ID}}",
+				"database_fields": {
+					"HazardLevel": "{{5.value}}"
+				}
+			},
+			"metadata": {
+				"designer": {
+					"x": 1022,
+					"y": -171
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					},
+					"mapper": {
+						"database_id": {
+							"label": "🌏 Travel Itinerary"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "database_id",
+						"type": "select",
+						"label": "Database ID",
+						"required": true
+					},
+					{
+						"name": "page_id",
+						"type": "text",
+						"label": "Page ID",
+						"required": true
+					},
+					{
+						"name": "database_fields",
+						"type": "collection",
+						"label": "Database Fields",
+						"spec": [
+							{
+								"name": "HazardLevel",
+								"type": "number",
+								"label": "Hazard Level"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": 7,
+			"module": "http:MakeRequest",
+			"version": 4,
+			"parameters": {
+				"tlsType": "",
+				"authenticationType": "noAuth"
+			},
+			"mapper": {
+				"qs": [
+					{
+						"name": "Authorization",
+						"value": "{{CWA_API_KEY}}"
+					}
+				],
+				"url": "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-001",
+				"method": "get",
+				"headers": [],
+				"bodyType": "raw",
+				"parseResponse": true,
+				"decompress": true,
+				"followRedirect": true,
+				"useRequestPayload": false,
+				"shareCookies": false,
+				"rejectUnauthorized": true,
+				"useMutualTls": false
+			},
+			"metadata": {
+				"designer": {
+					"x": 1289,
+					"y": -171
+				},
+				"restore": {
+					"parameters": {
+						"authenticationType": {
+							"label": "No authentication"
+						}
+					},
+					"mapper": {
+						"bodyType": {
+							"label": "Raw"
+						},
+						"method": {
+							"label": "GET"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "url",
+						"type": "url",
+						"label": "URL",
+						"required": true
+					},
+					{
+						"name": "method",
+						"type": "select",
+						"label": "Method",
+						"required": true,
+						"validate": {
+							"enum": [
+								"get",
+								"head",
+								"post",
+								"put",
+								"delete",
+								"patch"
+							]
+						}
+					},
+					{
+						"name": "headers",
+						"type": "array",
+						"label": "Headers",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "qs",
+						"type": "array",
+						"label": "Query String",
+						"spec": [
+							{
+								"name": "name",
+								"type": "text",
+								"label": "Name",
+								"required": true
+							},
+							{
+								"name": "value",
+								"type": "text",
+								"label": "Value",
+								"required": true
+							}
+						]
+					},
+					{
+						"name": "bodyType",
+						"type": "select",
+						"label": "Body type",
+						"validate": {
+							"enum": [
+								"raw",
+								"x_www_form_urlencoded",
+								"form_data"
+							]
+						}
+					},
+					{
+						"name": "parseResponse",
+						"type": "boolean",
+						"label": "Parse response",
+						"default": true
+					},
+					{
+						"name": "decompress",
+						"type": "boolean",
+						"label": "Decompress",
+						"default": true
+					},
+					{
+						"name": "followRedirect",
+						"type": "boolean",
+						"label": "Follow redirect",
+						"default": true
+					},
+					{
+						"name": "useRequestPayload",
+						"type": "boolean",
+						"label": "Use Request Payload",
+						"default": false
+					},
+					{
+						"name": "shareCookies",
+						"type": "boolean",
+						"label": "Share cookies with other HTTP modules",
+						"default": false
+					},
+					{
+						"name": "rejectUnauthorized",
+						"type": "boolean",
+						"label": "Evaluate all response status codes (2xx and 3xx)",
+						"default": true
+					},
+					{
+						"name": "useMutualTls",
+						"type": "boolean",
+						"label": "Use Mutual TLS",
+						"default": false
+					}
+				]
+			}
+		},
+		{
+			"id": 8,
+			"module": "builtin:BasicFeeder",
+			"version": 1,
+			"parameters": {},
+			"mapper": {
+				"array": "{{7.data.records.tropicalCyclones.tropicalCyclone.typhoonWarnings.typhoonWarning}}"
+			},
+			"metadata": {
+				"designer": {
+					"x": 1558,
+					"y": -171
+				},
+				"restore": {},
+				"expect": [
+					{
+						"name": "array",
+						"type": "array",
+						"label": "Array",
+						"required": true
+					}
+				]
+			}
+		},
+		{
+			"id": 9,
+			"module": "util:SetVariable",
+			"version": 1,
+			"parameters": {},
+			"mapper": {
+				"name": "TyphoonThreatFlag",
+				"value": "{{if((8.type = \"陸上颱風警報\" or 8.type = \"海上陸上颱風警報\") and parseDate(8.expires; \"YYYY-MM-DDTHH:mm:ssZ\") > now; 1; 0)}}"
+			},
+			"metadata": {
+				"designer": {
+					"x": 1827,
+					"y": -171
+				},
+				"restore": {},
+				"expect": [
+					{
+						"name": "name",
+						"type": "text",
+						"label": "Variable name",
+						"required": true
+					},
+					{
+						"name": "value",
+						"type": "any",
+						"label": "Variable value"
+					}
+				]
+			}
+		},
+		{
+			"id": 10,
+			"module": "notion:updateADatabaseItem",
+			"version": 1,
+			"parameters": {
+				"account": "{{YOUR_NOTION_CONNECTION_ID}}"
+			},
+			"mapper": {
+				"page_id": "{{YOUR_NOTION_MAIN_PAGE_ID}}",
+				"database_id": "{{NOTION_MAIN_DATABASE_ID}}",
+				"database_fields": {
+					"Forecast-MAX": "{{9.value}}"
+				}
+			},
+			"metadata": {
+				"designer": {
+					"x": 2097,
+					"y": -171
+				},
+				"restore": {
+					"parameters": {
+						"account": {
+							"label": "My Notion connection"
+						}
+					},
+					"mapper": {
+						"database_id": {
+							"label": "🌏 Travel Itinerary"
+						}
+					}
+				},
+				"expect": [
+					{
+						"name": "database_id",
+						"type": "select",
+						"label": "Database ID",
+						"required": true
+					},
+					{
+						"name": "page_id",
+						"type": "text",
+						"label": "Page ID",
+						"required": true
+					},
+					{
+						"name": "database_fields",
+						"type": "collection",
+						"label": "Database Fields",
+						"spec": [
+							{
+								"name": "Forecast-MAX",
+								"type": "number",
+								"label": "Forecast-MAX"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"metadata": {
+		"instant": false,
+		"version": 1,
+		"scenario": {
+			"roundtrips": 1,
+			"maxErrors": 3,
+			"autoCommit": true,
+			"autoCommitTriggerLast": true,
+			"sequential": false,
+			"slots": 1,
+			"confidential": false,
+			"dataloss": false,
+			"dlq": false,
+			"freshVariables": false
+		},
+		"designer": {
+			"orphans": []
+		},
+		"zone": "eu1.make.com"
+	}
+}}
