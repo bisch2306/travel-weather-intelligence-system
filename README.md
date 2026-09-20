@@ -12,7 +12,7 @@ When traveling through regions prone to typhoons, heavy rain and floods, checkin
 - Evaluate the current weather at the active stop and store a weather level (1–4).
 - Store the maximum forecast level for the next 2, 4, 6 and 10 hours.
 - Raise a typhoon flag if a typhoon warning is active.
-- Use the weather level in Notion to help pick suitable spots.
+- Filter the "Pick a Spot" list on the dashboard down to the activities that still work in the current weather.
 - Show a location-aware forecast widget inside the Notion dashboard.
 
 ---
@@ -55,10 +55,10 @@ graph TD
     H -->|"reads active stops"| ID
     H -->|"reset, then write warning types and times"| HD
     P -->|"reads station ID, writes weather levels and typhoon flag"| TR
-    TR --> SP
+    P -->|"writes the current level into every spot row"| SP
     ID --> DB
     HD --> DB
-    SP --> DB
+    SP -->|"Weather check view:<br/>tolerance >= current level"| DB
 
     WG["meteoblue-widget.html<br/>hosted e.g. on GitHub Pages<br/>(configured schedule, independent of Notion)"] -->|"embed block"| DB
     WG --> MB["Meteoblue forecast iframe"]
@@ -66,7 +66,7 @@ graph TD
 
 > **Note:** The widget does **not** read from Notion. It selects the location from a date schedule configured in the HTML file (see [Widget](#5-dashboard-widget-srcmeteoblue-widgethtml)).
 
-> **Blueprint files vs. full scenarios:** The diagrams below show the complete scenarios as they are built in Make.com. The JSON files in `blueprints/` are anonymized, English-translated **reference versions** and are reduced: `02_hazards_main.json` contains only the rain-warning route, and `03_spot_weather_main.json` contains the current-weather evaluation and a simple typhoon flag loop, but no forecast branch. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
+> **Blueprint files vs. full scenarios:** The diagrams below show the complete scenarios as they are built in Make.com. The JSON files in `blueprints/` are anonymized, English-translated **reference versions** and are reduced: `02_hazards_main.json` contains only the rain-warning route, and `03_spot_weather_main.json` contains the current-weather evaluation and a simple typhoon flag loop, but no forecast branch and no spot-index write. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
 ---
 
@@ -188,6 +188,8 @@ flowchart TD
 
 **Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each time block and stores the maximum for the next 2, 4, 6 and 10 hours.
 
+**Spot filtering:** in the full setup this scenario also writes the current level into every row of the spot index, which drives the "Pick a Spot" list on the dashboard — see [Spot filtering](#spot-filtering-pick-a-spot).
+
 ### 4. Webhook Listener (`04_spot_weather_webhook.json`)
 
 ```mermaid
@@ -243,11 +245,11 @@ In the full setup, the trip page additionally stores the forecast maxima per hor
 
 In the full setup, the hazard database holds start/end times (and levels) for rain, storm, flood and typhoon warnings.
 
-Everything else (dashboard layout, spot index, calendar, transfers, bookings, guides) is maintained in Notion and only consumes the resulting values.
+Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and only consumes the resulting values.
 
 ### Weather level scale
 
-The same 1–4 scale can be used for the current level and for the weather tolerance of each spot in a spot index:
+The same 1–4 scale is used twice: once for the **current weather level** at the active stop (derived by scenario 03) and once for the **weather tolerance** of each spot in the spot index.
 
 | Level | Meaning for a spot |
 | :---: | :--- |
@@ -255,6 +257,41 @@ The same 1–4 scale can be used for the current level and for the weather toler
 | 2 | ☁️ Cloudy is fine |
 | 3 | 🌦️ Light rain is fine |
 | 4 | ⛈️ Independent of weather |
+
+### Spot filtering ("Pick a Spot")
+
+The weather levels are not just displayed — they decide **which activities the dashboard still offers**. This is what the "Pick a Spot" section on the dashboard does.
+
+Every spot is tagged once, by hand, with the worst conditions it still makes sense in. An outdoor viewpoint is tolerance `1`, a temple courtyard `3`, an indoor museum or a beef noodle shop `4`. Scenario 03 then writes the current weather level of the active stop into **every row of the spot index**, and a formula compares the two values per row:
+
+```
+Weather OK  =  Weather tolerance >= Current level
+```
+
+The "Weather check" view of the spot database filters on that formula, so the list shrinks and grows on its own as the weather changes:
+
+| Current level | Spots shown |
+| :---: | :--- |
+| 1 ☀️ | everything (tolerance 1–4) |
+| 2 ☁️ | tolerance 2–4 — outdoor viewpoints drop out |
+| 3 🌦️ | tolerance 3–4 |
+| 4 ⛈️ | tolerance 4 only — indoor spots, night markets, food |
+
+The practical effect: during a heavy-rain warning the dashboard stops suggesting Elephant Mountain and leaves the museums and indoor food spots on the list, without anyone having to re-filter by hand.
+
+**Spot index** (written by scenario 03 in the full setup)
+
+| Property | Type | Purpose |
+| :--- | :--- | :--- |
+| `Name` | Title | Spot name |
+| `Weather tolerance` | Number | Worst conditions the spot still works in (1–4), maintained by hand |
+| `Current level` | Number | Current weather level of the active stop, overwritten on every run |
+| `Weather OK` | Formula | `Weather tolerance >= Current level`; the "Weather check" view filters on it |
+| `Priority` | Select | e.g. `Must Do` |
+| `Duration` | Select | e.g. `< 1 h`, `1–2 h`, `½ day` |
+| `Time of day` | Multi-select | e.g. `daytime`, `evening`, `sunset` |
+
+> Property names above are the ones used in this setup; adapt them to your own workspace. The spot-index write is **not** part of the reduced blueprint files — see [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
 > The blueprints reference Notion properties by their **internal IDs** in some modules and by **names** in others. After importing into your own workspace, re-select the databases and remap all fields in every Notion module.
 
@@ -305,6 +342,7 @@ The blueprints in `blueprints/` are reduced reference versions of the scenarios 
 - **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
 - **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times.
 - **Missing observations (`03`):** the level logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
+- **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The step that pushes the current level into every row of the spot index — the basis for the "Pick a Spot" filter described above — is part of the full scenario and is not included here.
 - **Widget schedule:** duplicated logic – the itinerary in Notion and the widget schedule are maintained separately.
 
 ---
