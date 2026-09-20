@@ -82,7 +82,9 @@ graph TD
 │   ├── 03_spot_weather_main.json
 │   └── 04_spot_weather_webhook.json
 ├── docs/
-│   └── pick-a-spot.png
+│   ├── hazard-status.png
+│   ├── pick-a-spot.png
+│   └── weather-forecast.png
 └── src/
     └── meteoblue-widget.html
 ```
@@ -98,6 +100,12 @@ A single scheduled HTTP module that sends a GET request to the webhook URL of sc
 ### 2. Hazards Pipeline (`02_hazards_main.json`)
 
 Triggered by a custom webhook. It resets the hazard fields, loads the relevant stops and then queries four warning sources via a router. Each route parses the response, extracts the warning type and its start/end time, and writes them to the matching row of the hazard status database.
+
+<p align="center">
+  <img src="docs/hazard-status.png" alt="Hazard status section of the dashboard: an active rain warning for Taipei with its level and validity period" width="420">
+</p>
+
+The result on the dashboard: the warning type, its level and its validity period for the active stop. The **Hazard check** button refreshes the data on demand, the same pattern as Weather Check in "Pick a Spot"; scenario 01 covers the scheduled runs.
 
 ```mermaid
 flowchart TD
@@ -209,6 +217,12 @@ The Notion-side trigger that calls this webhook (a Notion button or automation) 
 ### 5. Dashboard Widget (`src/meteoblue-widget.html`)
 
 A standalone HTML page embedding a Meteoblue forecast widget (dark layout, 4 days) in an iframe.
+
+<p align="center">
+  <img src="docs/weather-forecast.png" alt="The embedded Meteoblue widget on the dashboard, showing a four-day forecast and an hourly breakdown for Taipei" width="420">
+</p>
+
+The location shown follows the date, not Notion: the page picks it from the `SCHEDULE` array described below, so the widget moves to the next stop on its own as the trip progresses.
 
 - **Hosting:** The page has to be served over HTTPS (for example via GitHub Pages) and is then embedded into the Notion dashboard with an embed block. Publishing the file as `index.html` on GitHub Pages is enough.
 - **Schedule-based location:** The `SCHEDULE` array at the top of the script maps date ranges (in the `Asia/Taipei` timezone) to one of five locations: `taipei`, `alishan`, `xiaoliuqiu`, `kaohsiung`, `hualien`. Outside all ranges, `DEFAULT_LOCATION` is used. The schedule ships with **example dates**; replace them with your own itinerary. It is **not** synchronized with Notion, so changes to the itinerary in Notion must be repeated here.
