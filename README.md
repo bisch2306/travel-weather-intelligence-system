@@ -487,7 +487,7 @@ The practical consequence is worth knowing before changing anything: adjusting h
 
 > Property names above are those of this setup, translated; adapt them to your own workspace. The evaluation itself lives in Notion formulas on the `References` page, so it is not in the blueprints — importing them gives you the data, not the decision.
 
-> The blueprints reference Notion properties by their **internal IDs** in some modules and by **names** in others. After importing into your own workspace, re-select the databases and remap all fields in every Notion module.
+> The blueprints address these properties by Notion's **internal IDs**, not by the names above, so every Notion module needs its database re-selected and its fields remapped after import — see [Property remapping](#-notes-on-the-blueprint-files) for what that involves and why.
 
 ---
 
@@ -534,7 +534,9 @@ What still needs attention after importing them:
 
 - **Reset before fetch (`02`, `03`):** both pipelines clear their target fields before calling the APIs. If a call fails, the fields stay at their reset values until the next successful run — the dashboard shows "no warnings" rather than "unknown".
 - **Hardcoded regions (`02`):** the rain, storm and typhoon routes filter on literal county, district and region names. Adding a stop means editing those filters, not just adding an itinerary row. Scenario `03` works the other way round and reads its identifiers from Notion.
-- **Property remapping:** the Notion modules reference properties by their **internal IDs** from the original workspace. After importing, re-select each database and remap every field — the IDs will not resolve anywhere else.
+- **Property remapping.** Notion's API does not address a property by the name you see in the interface. Every property also has a short, opaque ID that Notion assigns when the property is created — `CoOM`, `yfSN`, `%3CNkr` and so on, sometimes URL-encoded, which is why they look like noise. Make stores those IDs in the blueprint rather than the labels, so a field mapping in the export reads `"CoOM": "0"` where the dashboard shows `Typhoon Risk`.
+
+  Those IDs are unique to the database they were created in. In a different workspace they point at nothing, so the modules import cleanly but their field mappings come up empty. After importing, open every Notion module, re-select the database and map the fields again against your own properties. Nothing is lost in the process — the IDs are handles, not data — but it is the one step that cannot be skipped, and it is why the property names in this README are a description of the structure rather than something you can match literally.
 - **Missing observations (`03`):** the observation level is keyword-based; a missing or unrecognised weather text yields level 1 ("normal"). The forecast levels are safer, defaulting to `4` for unknown codes.
 - **Leftovers:** `Forecast MAX 1h` and `🌦️ Final Weather Levels` exist as properties but nothing reads them. The one-hour level used by the spot filter is a Notion formula over the current observation, not a forecast value.
 - **Widget schedule:** duplicated logic. Notion and the widget both resolve the current location from the date, but from two independent sources — the itinerary database on one side, the `SCHEDULE` array in the HTML on the other. A change to the trip has to be made in both places, and nothing detects it when they drift apart.
