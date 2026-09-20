@@ -74,7 +74,7 @@ graph TD
 
 > **Note:** The widget does **not** read from Notion. It selects the location from a date schedule configured in the HTML file (see [Widget](#5-dashboard-widget-srcmeteoblue-widgethtml)).
 
-> **Blueprint files vs. full scenarios:** The diagrams below show the complete scenarios as they are built in Make.com. The JSON files in `blueprints/` are anonymized, English-translated **reference versions** and are reduced: `02_hazards_main.json` contains only the rain-warning route, and `03_spot_weather_main.json` contains the current-weather evaluation and a simple typhoon flag loop, but no forecast branch and none of the spot evaluation. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
+> **Blueprint files:** The JSON files in `blueprints/` are the complete scenarios, exported from Make and then anonymized and translated — credentials and IDs replaced by placeholders, names in English, structure unchanged. The diagrams below describe exactly what is in those files. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
 ---
 
@@ -169,7 +169,7 @@ flowchart TD
 | `高雄市` | `Kaohsiung` |
 | `花蓮縣` | `Hualien` |
 
-> This mapping is hardcoded as module filters, in the full setup as well as in the blueprint — the rain, storm and typhoon routes each carry their own list of accepted county, district or region names. Adding a stop to the trip therefore means editing those filters, not just adding an itinerary row. The spot weather pipeline works the other way round and reads its identifiers from Notion, so the two scenarios do not behave alike here.
+> This mapping is hardcoded as module filters — the rain, storm and typhoon routes each carry their own list of accepted county, district or region names. Adding a stop to the trip therefore means editing those filters, not just adding an itinerary row. The spot weather pipeline works the other way round and reads its identifiers from Notion, so the two scenarios do not behave alike here.
 
 ### 3. Spot Weather Pipeline (`03_spot_weather_main.json`)
 
@@ -240,7 +240,7 @@ Each horizon selects the blocks overlapping a window, and the windows are offset
 
 The offsets matter when reading the numbers: `Forecast MAX 2h` does not describe the next two hours from this second, but the block or blocks covering roughly the next half hour to hour and a half — which is the span an activity started now would actually run into.
 
-**Spot filtering:** in the full setup this scenario also feeds the spot evaluation behind the "Pick a Spot" list, which judges each spot against the forecast blocks its duration spans — see [Spot filtering](#spot-filtering-pick-a-spot).
+**Spot filtering:** the values this scenario writes are what the spot evaluation reads, which judges each spot against the forecast blocks its duration spans — see [Spot filtering](#spot-filtering-pick-a-spot).
 
 ### 4. Webhook Listener (`04_spot_weather_webhook.json`)
 
@@ -339,29 +339,34 @@ The dates are compared as `YYYY-MM-DD` strings, which works because that format 
 >
 > This is also why dates and times are deliberately kept out of date properties wherever a comparison depends on them. `Worthwhile until [time]` is a plain number of hours, and the stop resolution formats both ends of the date range to `YYYY-MM-DD` strings before comparing them. Comparing timezone-neutral values sidesteps the conversion entirely instead of hoping it lands right — worth copying.
 
-**Trip page** (`{{YOUR_NOTION_MAIN_PAGE_ID}}`, read and updated by scenario 03)
+**Trip page** (the single row of the `Trip` database, read and updated by scenario 03)
 
-| Property | Type | Purpose |
+This page is the central state record. Scenario 03 resolves it by search rather than by a fixed page ID, and writes exactly these values — all of them reset to `0` at the start of every run:
+
+| Property | Type | Written by |
 | :--- | :--- | :--- |
-| `StationID` | Formula (text) | CWA station ID of the active stop; its only use is the station observation call, so it shares that branch's leftover status |
-| `HazardLevel` | Number | Current weather level 1–4 |
-| `Forecast-MAX` | Number | Holds the typhoon flag (0/1) here despite the name — see below |
+| `Typhoon Risk` | Number | `0` on reset, `1` when a warning matches the current region |
+| `Current CWA Weather Level` | Number | The station observation, converted by keyword |
+| `Forecast MAX 2h` | Number | Worst forecast level in that window |
+| `Forecast MAX 4h` | Number | " |
+| `Forecast MAX 6h` | Number | " |
+| `Forecast MAX 10h` | Number | " |
+| `Weather last updated` | Rich text | Timestamp, formatted in `Asia/Taipei` |
 
-In the full setup this page is the central state record and carries considerably more: the resolved current stop with its CWA identifiers, the per-horizon weather levels (`1h`, `2h`, `4h`, `6h`, `10h`), the typhoon flag, preformatted strings for the dashboard, and a `Weather last updated` timestamp — the latter matters because nothing refreshes the spot weather in the background, so the timestamp is the only way to see how stale the list is.
-
-The `Forecast-MAX` name is a leftover and does not describe what the blueprint puts in it. Do not treat it as the forecast mechanism: the values the spot filter actually reads are the **per-horizon** properties of the full setup (`Forecast MAX 2h`, `4h`, `6h`, `10h`), which the blueprint does not produce. The full trip page also keeps a separate, properly named typhoon flag.
+Everything else on the page is derived in Notion from those seven values: the per-horizon `Weather Level 1h`…`10h` formulas the spot filter reads, the resolved stop with its CWA identifiers, and the preformatted strings the dashboard displays. The timestamp earns its place because nothing refreshes the spot weather in the background — it is the only indication of how stale the list is.
 
 **Hazard status database** (reset and updated by scenario 02)
 
-| Property | Type | Written by the blueprint? |
-| :--- | :--- | :---: |
-| `Rain Start` | Date | ✅ |
-| `Rain End` | Date | ✅ |
-| `Typhoon Start` | Date | reset only |
-| `Typhoon End` | Date | reset only |
-| `Storm Level` | Number | reset only |
+One row per stop. Each of the four hazard types has the same shape:
 
-In the full setup, the hazard database holds start/end times (and levels) for rain, storm, flood and typhoon warnings.
+| Hazard | Start / End | Type or level | Risk flag |
+| :--- | :--- | :--- | :--- |
+| Rain | `Rain Start`, `Rain End` | `Rain Type` | `Rain Risk` |
+| Storm | `Storm Start`, `Storm End` | `Storm Level` | `Storm Warning` |
+| Flood | `Flood Start`, `Flood End` | `Flood Level` | `Flood Risk` |
+| Typhoon | `Typhoon Start`, `Typhoon End` | `Typhoon Warning` | `Typhoon Risk` |
+
+Scenario 02 writes the raw columns; the risk flags and a set of `… Dashboard` formula properties translate them into what the cards show, together with `No Warnings` and `Show on dashboard?`, which implement the two display rules above. The dividers between the hazard blocks are formulas too — they collapse when the block above them is empty.
 
 Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and is not touched by the scenarios in this repository. Those pages are wired to the dashboard by **date** rather than by weather, and independently of anything Make writes:
 
@@ -480,7 +485,7 @@ Splitting the checks out this way is worth copying: when a spot unexpectedly dis
 
 The practical consequence is worth knowing before changing anything: adjusting how spots are judged or displayed is a formula edit on that page, not a change to the Make scenarios. The scenarios only decide *what data* arrives.
 
-> Property names above are those of this setup, translated; adapt them to your own workspace. Neither the spot evaluation nor the reference page is part of the reduced blueprint files — see [Notes on the blueprint files](#-notes-on-the-blueprint-files).
+> Property names above are those of this setup, translated; adapt them to your own workspace. The evaluation itself lives in Notion formulas on the `References` page, so it is not in the blueprints — importing them gives you the data, not the decision.
 
 > The blueprints reference Notion properties by their **internal IDs** in some modules and by **names** in others. After importing into your own workspace, re-select the databases and remap all fields in every Notion module.
 
@@ -511,7 +516,6 @@ The practical consequence is worth knowing before changing anything: adjusting h
 | `{{NOTION_HAZARDS_DATABASE_ID}}` | 02 | Hazard status database |
 | `{{NOTION_ITINERARY_DATABASE_ID}}` | 02 | Itinerary database |
 | `{{NOTION_MAIN_DATABASE_ID}}` | 03 | Database containing the page updated by scenario 03 |
-| `{{YOUR_NOTION_MAIN_PAGE_ID}}` | 03 | Notion page whose station ID is read and whose fields are updated |
 | `{{YOUR_HAZARDS_WEBHOOK_ID}}` | 01, 02 | Webhook ID of scenario 02 |
 | `{{YOUR_SPOT_WEATHER_WEBHOOK_ID}}` | 04 | Webhook ID of scenario 04 |
 | `{{YOUR_SCENARIO_ID}}` | 04 | ID of scenario 03 (target of the run call) |
@@ -524,16 +528,15 @@ The practical consequence is worth knowing before changing anything: adjusting h
 
 ## 📝 Notes on the blueprint files
 
-The blueprints in `blueprints/` are reduced reference versions of the scenarios shown above. For these files the following limitations apply:
+The blueprints in `blueprints/` are the **complete** scenarios as they run, exported and then anonymized and translated: every credential, webhook, connection and database ID is replaced by a `{{PLACEHOLDER}}`, and scenario, module and property names are in English. The structure, filters, routers and aggregators are untouched.
 
-- **Typhoon flag (`03`):** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The blueprint's flag is also **not** location-specific: any matching warning anywhere in Taiwan sets it.
+What still needs attention after importing them:
 
-  The full setup differs on both counts. It resets the flag to `0` before querying, so "no warning" is a real zero rather than an empty field, and it narrows the warnings it accepts by `urgency`, by `expires` and by the **current stop's CWA warning region** — a typhoon warning for a region you are not in does not switch your spot list off. Both differences matter when rebuilding from the blueprint: the spot filter tests the flag for equality with `0`, so a field left empty empties the entire spot list, and without the region check a distant typhoon would do the same.
-- **Hazard alerts (`02`):** only the rain-warning route is included, and all alert types from `W-C0033-002` are written to `Rain Start` / `Rain End`; there is no filtering by phenomenon. The typhoon and storm fields are reset but never filled.
-- **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
-- **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times. The full setup keeps one row per stop and matches the alert to the right one, which is the part this reduced blueprint leaves out.
-- **Missing observations (`03`):** the level logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
-- **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The per-spot evaluation behind the "Pick a Spot" filter — matching each spot's duration against the forecast blocks it spans, plus the opening-hours and time-of-day checks — lives in the full scenario and on the `References` page, and is not included here.
+- **Reset before fetch (`02`, `03`):** both pipelines clear their target fields before calling the APIs. If a call fails, the fields stay at their reset values until the next successful run — the dashboard shows "no warnings" rather than "unknown".
+- **Hardcoded regions (`02`):** the rain, storm and typhoon routes filter on literal county, district and region names. Adding a stop means editing those filters, not just adding an itinerary row. Scenario `03` works the other way round and reads its identifiers from Notion.
+- **Property remapping:** the Notion modules reference properties by their **internal IDs** from the original workspace. After importing, re-select each database and remap every field — the IDs will not resolve anywhere else.
+- **Missing observations (`03`):** the observation level is keyword-based; a missing or unrecognised weather text yields level 1 ("normal"). The forecast levels are safer, defaulting to `4` for unknown codes.
+- **Leftovers:** `Forecast MAX 1h` and `🌦️ Final Weather Levels` exist as properties but nothing reads them. The one-hour level used by the spot filter is a Notion formula over the current observation, not a forecast value.
 - **Widget schedule:** duplicated logic. Notion and the widget both resolve the current location from the date, but from two independent sources — the itinerary database on one side, the `SCHEDULE` array in the HTML on the other. A change to the trip has to be made in both places, and nothing detects it when they drift apart.
 
 ---
