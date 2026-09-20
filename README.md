@@ -324,3 +324,9 @@ The blueprints in `blueprints/` are reduced reference versions of the scenarios 
 - Webhook URLs and scenario IDs are visible in Make screenshots and in the browser address bar. Crop or blur them before sharing images.
 - The widget ships with example dates only. Keep your real travel dates out of public repositories.
 - Do not commit Notion exports of booking pages: they can contain confirmation links with access keys, phone numbers and e-mail addresses.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
