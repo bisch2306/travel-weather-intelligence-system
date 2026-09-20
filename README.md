@@ -389,13 +389,15 @@ An example. It is 10:00 and a spot is tagged with a duration of 6 hours, so it s
 
 If that spot needs at least cloudy weather, it drops out — even though the weather right now, and again later, is perfectly good. Starting a six-hour activity into a forecast that turns at noon is exactly what the system is there to prevent.
 
-In practice the windows are precomputed rather than recalculated per spot. The trip page stores the **worst** level across each of the next 1, 2, 4, 6 and 10 hours in its own property (`Weather level 1h`, `2h`, `4h`, `6h`, `10h`), and a spot's duration picks which one applies. This is why `Duration [h]` is a plain number drawn from a fixed set — `1`, `2`, `4`, `6`, `10` — rather than a free value or a label: each duration corresponds to exactly one stored horizon, so the lookup is a direct match with nothing to round.
+In practice the windows are precomputed rather than recalculated per spot. Scenario 03 stores the **worst** level across the next 2, 4, 6 and 10 hours, each in its own property, and a spot's `Duration [h]` picks which one applies. This is why the duration is a plain number drawn from a fixed set rather than a free value or a label: each one corresponds to exactly one stored horizon, so the lookup is a direct match with nothing to round.
 
 The maximum is stored rather than the average precisely so that one bad block inside the window survives into the comparison instead of being smoothed away.
 
 The consequence is that two spots under identical current weather can get opposite verdicts, purely because one takes an hour and the other takes six.
 
-**Where this is imprecise:** a 3-hour block is the finest resolution CWA offers, so anything shorter inherits the verdict of the whole block it falls into. A block that is mostly rain will hide a 45-minute spot even when the next 45 minutes would have been fine. An earlier version tried to close that gap by judging very short spots on the current station observation instead, but that reading describes a single moment while the block describes three hours, and mixing the two produced contradictory answers. Short spots are therefore judged on their block, and the remaining gap is left to the traveller — who can, after all, simply look out of the window.
+**Where the automation stops and judgement begins:** a 3-hour block is the finest resolution CWA offers, so there is no forecast window short enough to judge a one-hour spot honestly. Anything shorter than a block would simply inherit that block's verdict, and a block that is mostly rain would hide a 45-minute spot even when the next 45 minutes are fine. An earlier version tried to close the gap by judging short spots on the current station observation instead, but that reading describes a single moment while the block describes three hours, and mixing the two produced contradictory answers.
+
+Spots with `Duration [h] = 1` are therefore a deliberate exception: **no automated weather check applies to them**, and the traveller decides by looking out of the window. Every longer duration maps onto a forecast window that actually exists. Drawing that line explicitly is the point — a fabricated one-hour forecast would look authoritative while being an artefact of the block it was cut from.
 
 #### 2. There is still enough time to do it
 
@@ -425,7 +427,7 @@ Everything below is maintained by hand, once per spot. The automation contribute
 | `Name` | Title | Spot name |
 | `Location` | Select | Which stop the spot belongs to |
 | `Priority` | Select | `Must-Do`, `Should-Do`, `Could-Do` |
-| `Duration [h]` | Number | `1`, `2`, `4`, `6` or `10` — selects the matching forecast horizon |
+| `Duration [h]` | Number | `1`, `2`, `4`, `6` or `10`; `2` and up select the matching forecast horizon, `1` is judged by eye |
 | `Time of day` | Multi-select | `Morning`, `Daytime`, `Sunset`, `Evening` |
 | `Worthwhile until [time]` | Number | Latest hour at which starting still makes sense |
 | `Weather level` | Number | Worst conditions the spot still works in (1–4) |
@@ -436,7 +438,7 @@ The four conditions are not buried in a view filter — each is its own formula 
 | Property | Type | Checks |
 | :--- | :--- | :--- |
 | `Location OK?` | Formula | The spot's location is the current stop |
-| `Weather OK?` | Formula | The horizon matching `Duration [h]` is within `Weather level` |
+| `Weather OK?` | Formula | The horizon matching `Duration [h]` is within `Weather level` (not meaningful at duration `1`) |
 | `Time feasible?` | Formula | It is not yet past `Worthwhile until [time]` |
 | `Time of day OK?` | Formula | Now falls inside one of the spot's windows |
 | `Pick a Spot` | Formula | All four at once — this is what the view filters on |
