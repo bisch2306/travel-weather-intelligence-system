@@ -271,7 +271,9 @@ The weather levels are not just displayed — they decide **which activities the
   <img src="docs/pick-a-spot.png" alt="Pick a Spot section of the Notion dashboard, showing spot cards with their weather tolerance" width="420">
 </p>
 
-The **Wetter-Check** ("weather check") button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh weather level. In the state shown above every spot is listed — including `Gutes Wetter nötig`, which only survives at level 1 — so the current level is 1.
+The **Wetter-Check** ("weather check") button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh weather level.
+
+The screenshot was taken at level 1: the weather in Taipei was good, so nothing is filtered out. Spots that *require* good weather are available, and so is everything that merely tolerates rain — at level 1 the whole index qualifies. The filter only starts removing entries as the level climbs.
 
 Every spot is tagged once, by hand, with the worst conditions it still makes sense in. An outdoor viewpoint is tolerance `1`, a temple courtyard `3`, an indoor museum or a beef noodle shop `4`. Scenario 03 then writes the current weather level of the active stop into **every row of the spot index**, and a formula compares the two values per row:
 
