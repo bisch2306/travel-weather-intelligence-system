@@ -271,7 +271,7 @@ The weather levels are not just displayed — they decide **which activities the
   <img src="docs/pick-a-spot.png" alt="Illustration of the Pick a Spot dashboard section: spot cards listing priority, duration, time of day and weather tolerance" width="420">
 </p>
 
-> The image is an English illustration of the dashboard section, redrawn from the live view — the author's own dashboard is maintained in German.
+> The image is an English illustration of the dashboard section, redrawn from the live view — the author's own dashboard is maintained in German. The spots it lists are **examples** from one stop of the trip, not a fixed part of the setup: the index holds whatever spots you put in it.
 
 The **Weather Check** button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh weather level.
 
