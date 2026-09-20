@@ -399,7 +399,9 @@ The consequence is that two spots under identical current weather can get opposi
 
 #### 2. There is still enough time to do it
 
-Each spot carries a `Worthwhile until` time: the latest moment at which visiting it still makes sense. That is not only opening hours — for an outdoor spot it is usually the point where it simply gets too dark to be worth the trip. The remaining time is compared against the spot's duration, so a 2-hour spot with a cut-off at 16:00 disappears from the list at 15:00, when there is no longer enough of it left.
+Each spot carries a `Worthwhile until [time]`: the latest hour at which starting it still makes sense. Once that hour has passed, the spot leaves the list.
+
+The value is set by hand per spot, and it is a judgement rather than a closing time. Darkness is one reason — an outdoor viewpoint is pointless after dusk regardless of when it officially closes. But it can be more specific than that: the Alishan sunrise railway is capped at `6` because the run worth taking leaves around five in the morning, and a ticket for it at noon is of no use even though the railway is still operating.
 
 #### 3. The time of day matches
 
