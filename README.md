@@ -214,7 +214,7 @@ flowchart TD
 
 > **No longer used.** This observation-based level is a leftover: it describes the weather at a single moment, whereas the filter has to know whether conditions hold over a span of hours, so the live setup works purely off the forecast blocks. The logic is documented here because it is still present in the blueprint — not because anything reads its output.
 
-**Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future). In the full setup this flag is not just displayed: it switches the spot list off entirely — see [Spot filtering](#spot-filtering-pick-a-spot).
+**Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future). The full setup additionally requires the warning to apply to the current stop's CWA region and to not be `urgency = Past`. In the full setup this flag is not just displayed: it switches the spot list off entirely — see [Spot filtering](#spot-filtering-pick-a-spot).
 
 **Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each 3-hour time block and stores the maximum for the next 2, 4, 6 and 10 hours. The maximum is used rather than the average on purpose: one bad block inside a window is enough to rule an activity out, so averaging would smooth away exactly the case the system exists to catch.
 
@@ -371,7 +371,7 @@ The **Weather Check** button at the top runs the Make scenario on demand: it cal
 
 **Everything here applies to one stop at a time.** The dashboard works out where you are from the **date**, not from GPS: each stop is stored with its date range, and today's date selects the active one — the same principle the forecast widget uses. Spots, the forecast widget and the night-market guide all follow that resolution together, so on a Kaohsiung day the Taipei entries are not filtered out, they are simply not on the dashboard at all. Everything below narrows down what is already a single stop's list.
 
-**One override sits above everything else:** while a typhoon warning is active, the spot logic is switched off and the list stays empty. No tolerance value gets a spot through — during a typhoon the answer is simply to stay inside, so the dashboard stops offering alternatives instead of ranking them.
+**One override sits above everything else:** while a typhoon warning is active **for the current stop's warning region**, the spot logic is switched off and the list stays empty. No tolerance value gets a spot through — during a typhoon the answer is simply to stay inside, so the dashboard stops offering alternatives instead of ranking them.
 
 Otherwise a spot survives only if **all three** of the following hold. Any one of them can remove it from the list.
 
@@ -500,9 +500,9 @@ The practical consequence is worth knowing before changing anything: adjusting h
 
 The blueprints in `blueprints/` are reduced reference versions of the scenarios shown above. For these files the following limitations apply:
 
-- **Typhoon flag (`03`):** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The flag is not location-specific.
+- **Typhoon flag (`03`):** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The blueprint's flag is also **not** location-specific: any matching warning anywhere in Taiwan sets it.
 
-  This is worth carrying over carefully when rebuilding: the spot filter tests the flag for equality with `0`, so a field left empty rather than reset to `0` empties the entire spot list. The full setup resets it to `0` up front, which the reduced blueprint does not.
+  The full setup differs on both counts. It resets the flag to `0` before querying, so "no warning" is a real zero rather than an empty field, and it narrows the warnings it accepts by `urgency`, by `expires` and by the **current stop's CWA warning region** — a typhoon warning for a region you are not in does not switch your spot list off. Both differences matter when rebuilding from the blueprint: the spot filter tests the flag for equality with `0`, so a field left empty empties the entire spot list, and without the region check a distant typhoon would do the same.
 - **Hazard alerts (`02`):** only the rain-warning route is included, and all alert types from `W-C0033-002` are written to `Rain Start` / `Rain End`; there is no filtering by phenomenon. The typhoon and storm fields are reset but never filled.
 - **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
 - **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times. The full setup keeps one row per stop and matches the alert to the right one, which is the part this reduced blueprint leaves out.
