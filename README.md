@@ -501,6 +501,8 @@ The practical consequence is worth knowing before changing anything: adjusting h
 The blueprints in `blueprints/` are reduced reference versions of the scenarios shown above. For these files the following limitations apply:
 
 - **Typhoon flag (`03`):** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The flag is not location-specific.
+
+  This is worth carrying over carefully when rebuilding: the spot filter tests the flag for equality with `0`, so a field left empty rather than reset to `0` empties the entire spot list. The full setup resets it to `0` up front, which the reduced blueprint does not.
 - **Hazard alerts (`02`):** only the rain-warning route is included, and all alert types from `W-C0033-002` are written to `Rain Start` / `Rain End`; there is no filtering by phenomenon. The typhoon and storm fields are reset but never filled.
 - **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
 - **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times. The full setup keeps one row per stop and matches the alert to the right one, which is the part this reduced blueprint leaves out.
