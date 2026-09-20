@@ -1,6 +1,10 @@
-# 🇹🇼 Travel Risk & Weather Intelligence System (Taiwan)
+# 🇹🇼 Taiwan Travel - Travel Risk & Weather Intelligence System
 
 A schedule- and event-driven automation built with **Make.com** that pulls official Taiwanese weather and hazard data (CWA / WRA open data), derives simple weather and hazard indicators, and writes them into a **Notion travel workspace**. Everything can be shown on one Notion dashboard, including an embedded Meteoblue forecast widget for the current stop of the trip.
+
+This is a tool for use **during** the trip rather than for planning it. Weather in Taiwan can turn within the hour, which makes the current conditions a poor basis for deciding what to do next — a clear sky says nothing about whether it will still be clear in three hours. That matters because activities have a length: a viewpoint hike is worth starting only if the weather holds for the next two hours, a half-day trip only if it holds considerably longer.
+
+The setup answers that directly. Every spot carries a duration, and the pipeline stores the worst weather level expected over the next 2, 4, 6 and 10 hours, so the two can be read against each other: not just "is the weather fine right now", but "will it still be fine for as long as this activity takes".
 
 ---
 
@@ -10,7 +14,7 @@ When traveling through regions prone to typhoons, heavy rain and floods, checkin
 
 - Fetch official rain, storm, flood and typhoon warnings and map them to the stops of the itinerary.
 - Evaluate the current weather at the active stop and store a weather level (1–4).
-- Store the maximum forecast level for the next 2, 4, 6 and 10 hours.
+- Store the maximum forecast level for the next 2, 4, 6 and 10 hours, so a spot's duration can be matched against the weather expected over that window.
 - Raise a typhoon flag if a typhoon warning is active.
 - Filter the "Pick a Spot" list on the dashboard down to the activities that still work in the current weather.
 - Show a location-aware forecast widget inside the Notion dashboard.
@@ -197,7 +201,7 @@ flowchart TD
 
 **Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future).
 
-**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each time block and stores the maximum for the next 2, 4, 6 and 10 hours.
+**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each time block and stores the maximum for the next 2, 4, 6 and 10 hours. The four horizons exist to be compared against a spot's duration: the maximum is used rather than the average so that a single bad time block inside the window is enough to rule an activity out.
 
 **Spot filtering:** in the full setup this scenario also writes the current level into every row of the spot index, which drives the "Pick a Spot" list on the dashboard — see [Spot filtering](#spot-filtering-pick-a-spot).
 
@@ -316,7 +320,7 @@ Every spot carries four hand-maintained attributes — priority, duration, time 
 | :--- | :--- | :--- |
 | `Name` | Title | Spot name |
 | `Priority` | Select | `Must-Do`, `Should-Do`, `Could-Do` |
-| `Duration` | Select | e.g. `< 1 h`, `1–2 h`, `½ day` |
+| `Duration` | Select | e.g. `< 1 h`, `1–2 h`, `½ day`; read against the matching forecast horizon |
 | `Time of day` | Multi-select | e.g. `daytime`, `evening`, `sunset` |
 | `Weather tolerance` | Number | Worst conditions the spot still works in (1–4), maintained by hand |
 | `Current level` | Number | Current weather level of the active stop, overwritten on every run |
