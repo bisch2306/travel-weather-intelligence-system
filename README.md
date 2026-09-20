@@ -259,10 +259,53 @@ The Make.com scenarios expect the following structure. Names must match the blue
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
 | `Station` | Title | Stop name; must match the values in the regional mapping table |
-| `Date range` | Date (range) | When the trip is at this stop |
-| `Status` | Formula | Derived from the date range: `🟢 Current`, `🟡 Next Stop`, `⚪ Upcoming` |
+| `Date range` | Date (range) | From when to when the trip is at this stop |
+| `Order` | Number | Position of the stop in the itinerary |
+| `Trip` | Relation | Link to the trip page, which holds the `Current order` counter |
+| `Status` | Formula | `🟢 Current`, `🟡 Next Stop`, `⚪ Upcoming` or `Past` — see below |
 
-This small table is where the date-driven stop resolution actually happens. `Status` is not set by hand — it is a formula comparing the date range against today, which is what lets the rest of the dashboard follow the itinerary without anyone maintaining a "current location" switch. A stop may appear more than once: a trip that returns to its starting city simply gets two rows with different date ranges.
+This small table is where the date-driven stop resolution actually happens, and it is worth reading closely because **the four states do not all come from the same source**. `Current` and `Past` are decided by the date range against today. `Next Stop` is not: it comes from the `Order` number being one higher than the trip's current position, which is why the `Order` and `Trip` properties exist at all. Everything else falls through to `Upcoming`.
+
+Nothing here is set by hand, so no one has to maintain a "current location" switch — and a stop may appear more than once, since a trip returning to its starting city simply gets two rows with different date ranges.
+
+The formula, translated (the live one uses German property names and labels):
+
+```
+lets(
+  currentOrder,
+  prop("Trip").first().prop("Current order"),
+
+  today,
+  formatDate(now(), "YYYY-MM-DD"),
+
+  start,
+  formatDate(dateStart(prop("Date range")), "YYYY-MM-DD"),
+
+  end,
+  formatDate(dateEnd(prop("Date range")), "YYYY-MM-DD"),
+
+  if(
+    today > end,
+    "Past".style("gray", "s"),
+
+    if(
+      today >= start and
+      today <= end,
+      "🟢 Current".style("green", "b"),
+
+      if(
+        prop("Order") == currentOrder + 1,
+        "🟡 Next Stop".style("yellow", "b"),
+        "⚪ Upcoming".style("gray")
+      )
+    )
+  )
+)
+```
+
+The dates are compared as `YYYY-MM-DD` strings, which works because that format sorts lexicographically.
+
+> **Timezone caveat:** the formula takes today from `now()`, which follows the Notion workspace timezone rather than the destination's. If the workspace is set to a home timezone while travelling, the stop can flip over hours early or late. The forecast widget avoids this by pinning `Asia/Taipei` explicitly (see [Widget](#5-dashboard-widget-srcmeteoblue-widgethtml)); the Notion side has no equivalent guard.
 
 **Trip page** (`{{YOUR_NOTION_MAIN_PAGE_ID}}`, read and updated by scenario 03)
 
