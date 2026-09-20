@@ -254,12 +254,15 @@ The location shown follows the date, not Notion: the page picks it from the `SCH
 
 The Make.com scenarios expect the following structure. Names must match the blueprints or be remapped after import.
 
-**Itinerary database** (read by scenario 02)
+**Itinerary database** (read by scenario 02; lives on the `References` page)
 
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
-| `Location` | Select | Stop name; must match the values in the mapping table |
-| `Status` | Status | Values `🟢 Current`, `🟡 Next Stop`, `⚪ Upcoming` |
+| `Station` | Title | Stop name; must match the values in the regional mapping table |
+| `Date range` | Date (range) | When the trip is at this stop |
+| `Status` | Formula | Derived from the date range: `🟢 Current`, `🟡 Next Stop`, `⚪ Upcoming` |
+
+This small table is where the date-driven stop resolution actually happens. `Status` is not set by hand — it is a formula comparing the date range against today, which is what lets the rest of the dashboard follow the itinerary without anyone maintaining a "current location" switch. A stop may appear more than once: a trip that returns to its starting city simply gets two rows with different date ranges.
 
 **Trip page** (`{{YOUR_NOTION_MAIN_PAGE_ID}}`, read and updated by scenario 03)
 
@@ -285,7 +288,7 @@ In the full setup, the hazard database holds start/end times (and levels) for ra
 
 Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and is not touched by the scenarios in this repository. Those pages are wired to the dashboard by **date** rather than by weather, and independently of anything Make writes:
 
-- A "What's coming up" section surfaces whatever falls on **today and tomorrow** — an upcoming transfer, a check-in. Tomorrow's transfer is therefore already visible the evening before.
+- A "What's coming up" section surfaces whatever falls on **today and tomorrow** — an upcoming transfer, a check-in. Each source database carries a view filtered to that window, so tomorrow's transfer is already visible the evening before.
 - Each of those entries links through to its own page in the document hub, so the ticket PDF, booking confirmation or route notes sit one click away instead of in a separate app.
 
 Location-dependent content — the night-market guide, for instance — follows the same date-driven stop resolution as the spot list, so it swaps over on its own when the trip moves on.
