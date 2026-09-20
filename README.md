@@ -12,6 +12,7 @@ The setup answers that directly. Every spot carries a duration, and the forecast
 
 When traveling through regions prone to typhoons, heavy rain and floods, checking forecasts manually is easy to forget. This project automates the following:
 
+- Resolve the current stop from the date rather than from GPS, so spots, forecast and guides always belong to the place the itinerary puts you in.
 - Fetch official rain, storm, flood and typhoon warnings and map them to the stops of the itinerary.
 - Derive a 1–4 weather level per forecast block, so conditions can be compared against what a spot requires.
 - Store the maximum forecast level for the next 2, 4, 6 and 10 hours, so a spot's duration can be matched against the weather expected over that window.
@@ -282,7 +283,12 @@ The `Forecast-MAX` name is a leftover and does not describe what the blueprint p
 
 In the full setup, the hazard database holds start/end times (and levels) for rain, storm, flood and typhoon warnings.
 
-Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and is not touched by the scenarios in this repository. Those pages are wired to the dashboard by **date** rather than by weather: a "What's coming up" section surfaces whatever falls on today and tomorrow — an upcoming transfer to the next stop, a check-in — independently of anything Make writes.
+Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and is not touched by the scenarios in this repository. Those pages are wired to the dashboard by **date** rather than by weather, and independently of anything Make writes:
+
+- A "What's coming up" section surfaces whatever falls on **today and tomorrow** — an upcoming transfer, a check-in. Tomorrow's transfer is therefore already visible the evening before.
+- Each of those entries links through to its own page in the document hub, so the ticket PDF, booking confirmation or route notes sit one click away instead of in a separate app.
+
+Location-dependent content — the night-market guide, for instance — follows the same date-driven stop resolution as the spot list, so it swaps over on its own when the trip moves on.
 
 ### Weather level scale
 
@@ -306,6 +312,8 @@ The weather levels are not just displayed — they decide **which activities the
 > The image is an English illustration of the dashboard section, redrawn from the live view — the author's own dashboard is maintained in German. The spots it lists are **examples** from one stop of the trip, not a fixed part of the setup: the index holds whatever spots you put in it.
 
 The **Weather Check** button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh evaluation.
+
+**Everything here applies to one stop at a time.** The dashboard works out where you are from the **date**, not from GPS: each stop is stored with its date range, and today's date selects the active one — the same principle the forecast widget uses. Spots, the forecast widget and the night-market guide all follow that resolution together, so on a Kaohsiung day the Taipei entries are not filtered out, they are simply not on the dashboard at all. Everything below narrows down what is already a single stop's list.
 
 **One override sits above everything else:** while a typhoon warning is active, the spot logic is switched off and the list stays empty. No tolerance value gets a spot through — during a typhoon the answer is simply to stay inside, so the dashboard stops offering alternatives instead of ranking them.
 
@@ -417,7 +425,7 @@ The blueprints in `blueprints/` are reduced reference versions of the scenarios 
 - **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times. The full setup keeps one row per stop and matches the alert to the right one, which is the part this reduced blueprint leaves out.
 - **Missing observations (`03`):** the level logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
 - **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The per-spot evaluation behind the "Pick a Spot" filter — matching each spot's duration against the forecast blocks it spans, plus the opening-hours and time-of-day checks — lives in the full scenario and on the `References` page, and is not included here.
-- **Widget schedule:** duplicated logic – the itinerary in Notion and the widget schedule are maintained separately.
+- **Widget schedule:** duplicated logic. Notion and the widget both resolve the current location from the date, but from two independent sources — the itinerary database on one side, the `SCHEDULE` array in the HTML on the other. A change to the trip has to be made in both places, and nothing detects it when they drift apart.
 
 ---
 
