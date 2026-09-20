@@ -4,7 +4,7 @@ A schedule- and event-driven automation built with **Make.com** that pulls offic
 
 This is a tool for use **during** the trip rather than for planning it. Weather in Taiwan can turn within the hour, which makes the current conditions a poor basis for deciding what to do next — a clear sky says nothing about whether it will still be clear in three hours. That matters because activities have a length: a viewpoint hike is worth starting only if the weather holds for the next two hours, a half-day trip only if it holds considerably longer.
 
-The setup answers that directly. Every spot carries a duration, and the pipeline stores the worst weather level expected over the next 2, 4, 6 and 10 hours, so the two can be read against each other: not just "is the weather fine right now", but "will it still be fine for as long as this activity takes".
+The setup answers that directly. Every spot carries a duration, and the forecast is evaluated across exactly the window that duration covers — so the question the dashboard answers is not "is the weather fine right now" but "will it hold for as long as this activity takes".
 
 ---
 
@@ -45,6 +45,7 @@ graph TD
         HD[("Hazard status database")]
         ID[("Itinerary database")]
         TR[("Trip page")]
+        RF[("Referenzen page<br/>raw values + formula layer")]
         SP[("Spot index")]
         DB["Travel dashboard"]
     end
@@ -59,10 +60,11 @@ graph TD
     H -->|"reads active stops"| ID
     H -->|"reset, then write warning types and times"| HD
     P -->|"reads station ID, writes weather levels and typhoon flag"| TR
-    P -->|"writes the current level into every spot row"| SP
+    P -->|"writes the raw weather outcome"| RF
+    RF -->|"formulas translate it for display"| SP
     ID --> DB
     HD --> DB
-    SP -->|"Spots view filter:<br/>tolerance >= current level"| DB
+    SP -->|"filtered by weather window,<br/>opening hours and time of day"| DB
 
     WG["meteoblue-widget.html<br/>hosted e.g. on GitHub Pages<br/>(configured schedule, independent of Notion)"] -->|"embed block"| DB
     WG --> MB["Meteoblue forecast iframe"]
@@ -109,7 +111,12 @@ Triggered by a custom webhook. It resets the hazard fields, loads the relevant s
   <img src="docs/hazard-status.png" alt="Hazard status section of the dashboard: an active rain warning for Taipei with its level and validity period" width="420">
 </p>
 
-The result on the dashboard: the warning type, its level and its validity period for the active stop. The **Hazard check** button refreshes the data on demand, the same pattern as Weather Check in "Pick a Spot"; scenario 01 covers the scheduled runs.
+The result on the dashboard: the warning type, its level and its validity period. The **Hazard check** button refreshes the data on demand, the same pattern as Weather Check in "Pick a Spot"; scenario 01 covers the scheduled runs.
+
+Which cards appear follows two rules:
+
+- The card for the **current stop is always shown**, warning or not — so the section is never silently empty.
+- Every other stop appears **only when it actually has a warning**. A warning is never suppressed because you are somewhere else: a storm warning for Hualien shows up while you are in Taipei, which is the point — the next stop's weather matters before you get there.
 
 ```mermaid
 flowchart TD
@@ -201,9 +208,9 @@ flowchart TD
 
 **Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future).
 
-**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each time block and stores the maximum for the next 2, 4, 6 and 10 hours. The four horizons exist to be compared against a spot's duration: the maximum is used rather than the average so that a single bad time block inside the window is enough to rule an activity out.
+**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each 3-hour time block and stores the maximum for the next 2, 4, 6 and 10 hours. The maximum is used rather than the average on purpose: one bad block inside a window is enough to rule an activity out, so averaging would smooth away exactly the case the system exists to catch.
 
-**Spot filtering:** in the full setup this scenario also writes the current level into every row of the spot index, which drives the "Pick a Spot" list on the dashboard — see [Spot filtering](#spot-filtering-pick-a-spot).
+**Spot filtering:** in the full setup this scenario also feeds the spot evaluation behind the "Pick a Spot" list, which judges each spot against the forecast blocks its duration spans — see [Spot filtering](#spot-filtering-pick-a-spot).
 
 ### 4. Webhook Listener (`04_spot_weather_webhook.json`)
 
@@ -268,7 +275,7 @@ In the full setup, the trip page additionally stores the forecast maxima per hor
 
 In the full setup, the hazard database holds start/end times (and levels) for rain, storm, flood and typhoon warnings.
 
-Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and only consumes the resulting values.
+Everything else (dashboard layout, calendar, transfers, bookings, guides) is maintained in Notion and is not touched by the scenarios in this repository. Those pages are wired to the dashboard by **date** rather than by weather: a "What's coming up" section surfaces whatever falls on today and tomorrow — an upcoming transfer to the next stop, a check-in — independently of anything Make writes.
 
 ### Weather level scale
 
@@ -291,42 +298,50 @@ The weather levels are not just displayed — they decide **which activities the
 
 > The image is an English illustration of the dashboard section, redrawn from the live view — the author's own dashboard is maintained in German. The spots it lists are **examples** from one stop of the trip, not a fixed part of the setup: the index holds whatever spots you put in it.
 
-The **Weather Check** button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh weather level.
+The **Weather Check** button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh evaluation.
 
-The state shown is level 1: the weather in Taipei was good, so nothing is filtered out. Spots that *require* good weather are available, and so is everything that merely tolerates rain — at level 1 the whole index qualifies. The filter only starts removing entries as the level climbs.
+A spot survives the filter only if **all three** of the following hold. Any one of them can remove it from the list.
 
-Every spot is tagged once, by hand, with the worst conditions it still makes sense in. An outdoor viewpoint is tolerance `1`, a temple courtyard `3`, an indoor museum or a beef noodle shop `4`. Scenario 03 then writes the current weather level of the active stop into **every row of the spot index**, and a formula compares the two values per row:
+#### 1. The weather holds for as long as the spot takes
 
-```
-Weather OK  =  Weather tolerance >= Current level
-```
+This is the core of the system, and it is deliberately *not* a check against the current weather. CWA publishes its district forecast as **3-hour blocks** covering the next 72 hours. A spot's duration decides how many of those blocks it spans, counting from now — and **every** block it spans has to satisfy the spot's weather tolerance. A single bad block is enough to drop it.
 
-The `Spots` view of the spot database carries a filter on that formula, so the list shrinks and grows on its own as the weather changes:
+An example. It is 10:00 and a spot is tagged with a duration of 6 hours, so it spans three blocks:
 
-| Current level | Spots shown |
-| :---: | :--- |
-| 1 ☀️ | everything (tolerance 1–4) |
-| 2 ☁️ | tolerance 2–4 — outdoor viewpoints drop out |
-| 3 🌦️ | tolerance 3–4 |
-| 4 ⛈️ | tolerance 4 only — indoor spots, night markets, food |
+| Block | Forecast | Verdict |
+| :--- | :--- | :--- |
+| 09–12 | clear | fine |
+| 12–15 | rain | **fails** |
+| 15–18 | clear | fine |
 
-The practical effect: during a heavy-rain warning the dashboard stops suggesting Elephant Mountain and leaves the museums and indoor food spots on the list, without anyone having to re-filter by hand.
+If that spot needs at least cloudy weather, it drops out — even though the weather right now, and again later, is perfectly good. Starting a six-hour activity into a forecast that turns at noon is exactly what the system is there to prevent. This is also why the pipeline stores the **maximum** level across a window rather than the average: the worst block decides.
 
-**Spot index** (`Taiwan Spot Index`, written by scenario 03 in the full setup)
+The consequence is that two spots under identical current weather can get opposite verdicts, purely because one takes an hour and the other takes six.
 
-Every spot carries four hand-maintained attributes — priority, duration, time of day and the weather it needs — plus the two fields the automation uses to filter it:
+#### 2. There is still enough time to do it
+
+Each spot carries a `Worthwhile until` value holding closing times and similar cut-offs. The remaining time is compared against the spot's duration: a 2-hour spot that closes at 16:00 disappears from the list at 15:00, because starting it no longer makes sense.
+
+#### 3. The time of day matches
+
+`Time of day` is not a label but a filter, defined as fixed times and ranges. A spot meant for the morning is gone by midday; a sunset viewpoint only appears in its window.
+
+**Spot index** (`Taiwan Spot Index`)
+
+Everything below is maintained by hand, once per spot. The automation contributes the weather side only; the spot's own attributes never change.
 
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
 | `Name` | Title | Spot name |
 | `Priority` | Select | `Must-Do`, `Should-Do`, `Could-Do` |
-| `Duration` | Select | e.g. `< 1 h`, `1–2 h`, `½ day`; read against the matching forecast horizon |
-| `Time of day` | Multi-select | e.g. `daytime`, `evening`, `sunset` |
-| `Weather tolerance` | Number | Worst conditions the spot still works in (1–4), maintained by hand |
-| `Current level` | Number | Current weather level of the active stop, overwritten on every run |
-| `Weather OK` | Formula | `Weather tolerance >= Current level`; the `Spots` view filters on it |
+| `Duration` | Select | Rough length of the visit; decides how many 3-hour forecast blocks have to hold |
+| `Time of day` | Multi-select | Fixed times and ranges the spot is meant for, matched against the current time |
+| `Worthwhile until` | Time | Closing time or similar cut-off; compared against `Duration` to see whether starting still pays off |
+| `Weather tolerance` | Number | Worst conditions the spot still works in (1–4) |
 
-> Property names above are the ones used in this setup; adapt them to your own workspace. The spot-index write is **not** part of the reduced blueprint files — see [Notes on the blueprint files](#-notes-on-the-blueprint-files).
+**How the automation reaches these rows.** Make does not write display values into the dashboard directly. Each scenario writes its raw outcome — a weather level, a hazard state — into a dedicated property, and a separate Notion **formula property** translates that raw value into what the dashboard finally shows and filters on. These formula properties live on a central `Referenzen` ("references") page that holds several databases and largely defines how the dashboard renders. Changing the presentation is therefore a formula change on that page, not a change to the Make scenarios.
+
+> Property names above are those of this setup, translated; adapt them to your own workspace. Neither the spot evaluation nor the reference page is part of the reduced blueprint files — see [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
 > The blueprints reference Notion properties by their **internal IDs** in some modules and by **names** in others. After importing into your own workspace, re-select the databases and remap all fields in every Notion module.
 
@@ -375,9 +390,9 @@ The blueprints in `blueprints/` are reduced reference versions of the scenarios 
 - **Typhoon flag (`03`):** the flag is written once per warning in the CWA response, so the **last warning** in the list determines the final value. If there are no warnings at all, the loop does not run and the field stays empty (reset state) instead of `0`. The flag is not location-specific.
 - **Hazard alerts (`02`):** only the rain-warning route is included, and all alert types from `W-C0033-002` are written to `Rain Start` / `Rain End`; there is no filtering by phenomenon. The typhoon and storm fields are reset but never filled.
 - **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
-- **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times.
+- **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times. The full setup keeps one row per stop and matches the alert to the right one, which is the part this reduced blueprint leaves out.
 - **Missing observations (`03`):** the level logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
-- **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The step that pushes the current level into every row of the spot index — the basis for the "Pick a Spot" filter described above — is part of the full scenario and is not included here.
+- **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The per-spot evaluation behind the "Pick a Spot" filter — matching each spot's duration against the forecast blocks it spans, plus the opening-hours and time-of-day checks — lives in the full scenario and on the `Referenzen` page, and is not included here.
 - **Widget schedule:** duplicated logic – the itinerary in Notion and the widget schedule are maintained separately.
 
 ---
