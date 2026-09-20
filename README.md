@@ -335,7 +335,9 @@ lets(
 
 The dates are compared as `YYYY-MM-DD` strings, which works because that format sorts lexicographically.
 
-> **Timezone caveat:** the formula takes today from `now()`, which follows the Notion workspace timezone rather than the destination's. If the workspace is set to a home timezone while travelling, the stop can flip over hours early or late. The same applies to the `hour(now())` comparisons in the time-of-day and cut-off checks. Both of the other layers pin the timezone explicitly — the widget through `Asia/Taipei` in its date formatting, and Make when it stamps the update time — so Notion's formulas are the one place relying on a workspace setting.
+> **Timezones are handled differently in each layer.** Make and the widget both pin `Asia/Taipei` explicitly. Notion does not: its formulas evaluate `now()` against the **device** timezone, so they are correct exactly while the phone showing the dashboard is on local time — which on a trip it is. The case to watch is a device that is not: a laptop still on home time, or checking the dashboard before departure, will shift the stop resolution, the time-of-day windows and the cut-off check by the offset.
+>
+> This is also why dates and times are deliberately kept out of date properties wherever a comparison depends on them. `Worthwhile until [time]` is a plain number of hours, and the stop resolution formats both ends of the date range to `YYYY-MM-DD` strings before comparing them. Comparing timezone-neutral values sidesteps the conversion entirely instead of hoping it lands right — worth copying.
 
 **Trip page** (`{{YOUR_NOTION_MAIN_PAGE_ID}}`, read and updated by scenario 03)
 
