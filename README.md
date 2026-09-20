@@ -416,7 +416,9 @@ The value is set by hand per spot, and it is a judgement rather than a closing t
 | `Sunset` | 16:00 – 18:30 |
 | `Evening` | 17:00 – 24:00 |
 
-They overlap on purpose, and a spot can carry several — it stays visible as long as the current time falls inside any of them. A spot marked morning-only is gone by midday; a sunset viewpoint surfaces for its two and a half hours and then disappears again.
+Each window is half-open (`>= start`, `< end`). They overlap on purpose, and a spot can carry several — it stays visible as long as the current time falls inside any of them. A spot marked morning-only is gone by midday; a sunset viewpoint surfaces for its two and a half hours and then disappears again.
+
+> **Gap between midnight and 03:00.** The four windows together cover 03:00–24:00, so nothing matches between `00:00` and `03:00` and the list is empty in those hours whatever a spot is tagged with. Worth knowing where night markets run past midnight: a stall tagged `Evening` disappears at 24:00 even while it is still open.
 
 **Spot index** (`Taiwan Spot Index`)
 
@@ -426,8 +428,9 @@ Everything below is maintained by hand, once per spot. The automation contribute
 | :--- | :--- | :--- |
 | `Name` | Title | Spot name |
 | `Location` | Select | Which stop the spot belongs to |
-| `Priority` | Select | `Must-Do`, `Should-Do`, `Could-Do` |
-| `Duration [h]` | Number | `1`, `2`, `4`, `6` or `10`; `2` and up select the matching forecast horizon, `1` is judged by eye |
+| `Priority` | Select | `Must-Do` (would regret leaving without it), `Should-Do` (great if weather, route and time allow), `Could-Do` (good spontaneous alternative when nearby) |
+| `Duration [h]` | Select | `1`, `2`, `4`, `6` or `10`; `2` and up select the matching forecast horizon, `1` is judged by eye |
+| `Visited` | Checkbox | Ticked once done; excludes the spot from the list for good |
 | `Time of day` | Multi-select | `Morning`, `Daytime`, `Sunset`, `Evening` |
 | `Worthwhile until [time]` | Number | Latest hour at which starting still makes sense |
 | `Weather level` | Number | Worst conditions the spot still works in (1–4) |
@@ -441,7 +444,9 @@ The four conditions are not buried in a view filter — each is its own formula 
 | `Weather OK?` | Formula | The horizon matching `Duration [h]` is within `Weather level` (not meaningful at duration `1`) |
 | `Time feasible?` | Formula | It is not yet past `Worthwhile until [time]` |
 | `Time of day OK?` | Formula | Now falls inside one of the spot's windows |
-| `Pick a Spot` | Formula | All four at once — this is what the view filters on |
+| `Pick a Spot` | Formula | All four, plus no active typhoon and `not(Visited)` — this is what the view filters on |
+
+`Pick a Spot` carries two conditions of its own beyond the four checks: the typhoon flag must be clear, and `Visited` must be unticked, so a spot drops off the list for good once it has been ticked off. The list therefore shrinks over a trip even in unchanged weather.
 
 Splitting the checks out this way is worth copying: when a spot unexpectedly disappears, the row itself shows which of the four said no.
 
