@@ -111,7 +111,7 @@ Triggered by a custom webhook. It resets the hazard fields, loads the relevant s
   <img src="docs/hazard-status.png" alt="Hazard status section of the dashboard: an active rain warning for Taipei with its level and validity period" width="420">
 </p>
 
-The result on the dashboard: the warning type, its level and its validity period. The **Hazard check** button refreshes the data on demand, the same pattern as Weather Check in "Pick a Spot"; scenario 01 covers the scheduled runs.
+The result on the dashboard: the warning type, its level and its validity period. The **Hazard check** button refreshes the data on demand, the same pattern as Weather Check in "Pick a Spot".
 
 Which cards appear follows two rules:
 
@@ -206,7 +206,9 @@ flowchart TD
 | `陰`, `雲` | overcast, cloud | **2** |
 | anything else | clear / normal | **1** |
 
-**Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future).
+> This observation-based level is **not** what the spot filter reads. It describes the weather at one moment, whereas the filter needs to know whether conditions hold over a span of hours, so the filter works off the forecast blocks instead. The value is kept for display and as a sanity check against the forecast.
+
+**Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future). In the full setup this flag is not just displayed: it switches the spot list off entirely — see [Spot filtering](#spot-filtering-pick-a-spot).
 
 **Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each 3-hour time block and stores the maximum for the next 2, 4, 6 and 10 hours. The maximum is used rather than the average on purpose: one bad block inside a window is enough to rule an activity out, so averaging would smooth away exactly the case the system exists to catch.
 
@@ -300,7 +302,9 @@ The weather levels are not just displayed — they decide **which activities the
 
 The **Weather Check** button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh evaluation.
 
-A spot survives the filter only if **all three** of the following hold. Any one of them can remove it from the list.
+**One override sits above everything else:** while a typhoon warning is active, the spot logic is switched off and the list stays empty. No tolerance value gets a spot through — during a typhoon the answer is simply to stay inside, so the dashboard stops offering alternatives instead of ranking them.
+
+Otherwise a spot survives only if **all three** of the following hold. Any one of them can remove it from the list.
 
 #### 1. The weather holds for as long as the spot takes
 
@@ -319,6 +323,8 @@ If that spot needs at least cloudy weather, it drops out — even though the wea
 In practice the windows are precomputed rather than recalculated per spot. Scenario 03 stores the **worst** level across each of the next 2, 4, 6 and 10 hours in its own property (`Forecast MAX 2h`, `Forecast MAX 4h`, and so on), and a spot's duration selects which of them applies — a short visit is judged on the 2-hour value, a half-day trip on the 6-hour one. The maximum is stored rather than the average precisely so that one bad block inside the window survives into the comparison instead of being smoothed away.
 
 The consequence is that two spots under identical current weather can get opposite verdicts, purely because one takes an hour and the other takes six.
+
+**Where this is imprecise:** a 3-hour block is the finest resolution CWA offers, so anything shorter inherits the verdict of the whole block it falls into. A block that is mostly rain will hide a 45-minute spot even when the next 45 minutes would have been fine. An earlier version tried to close that gap by judging very short spots on the current station observation instead, but that reading describes a single moment while the block describes three hours, and mixing the two produced contradictory answers. Short spots are therefore judged on their block, and the remaining gap is left to the traveller — who can, after all, simply look out of the window.
 
 #### 2. There is still enough time to do it
 
