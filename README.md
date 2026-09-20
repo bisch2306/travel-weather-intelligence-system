@@ -16,7 +16,7 @@ When traveling through regions prone to typhoons, heavy rain and floods, checkin
 - Evaluate the current weather at the active stop and store a weather level (1–4).
 - Store the maximum forecast level for the next 2, 4, 6 and 10 hours, so a spot's duration can be matched against the weather expected over that window.
 - Raise a typhoon flag if a typhoon warning is active.
-- Filter the "Pick a Spot" list on the dashboard down to the activities that still work in the current weather.
+- Filter the "Pick a Spot" list on the dashboard down to the activities whose weather holds for as long as they take, that are still open, and that suit the time of day.
 - Show a location-aware forecast widget inside the Notion dashboard.
 
 ---
@@ -45,7 +45,7 @@ graph TD
         HD[("Hazard status database")]
         ID[("Itinerary database")]
         TR[("Trip page")]
-        RF[("Referenzen page<br/>raw values + formula layer")]
+        RF[("References page<br/>raw values + formula layer")]
         SP[("Spot index")]
         DB["Travel dashboard"]
     end
@@ -72,7 +72,7 @@ graph TD
 
 > **Note:** The widget does **not** read from Notion. It selects the location from a date schedule configured in the HTML file (see [Widget](#5-dashboard-widget-srcmeteoblue-widgethtml)).
 
-> **Blueprint files vs. full scenarios:** The diagrams below show the complete scenarios as they are built in Make.com. The JSON files in `blueprints/` are anonymized, English-translated **reference versions** and are reduced: `02_hazards_main.json` contains only the rain-warning route, and `03_spot_weather_main.json` contains the current-weather evaluation and a simple typhoon flag loop, but no forecast branch and no spot-index write. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
+> **Blueprint files vs. full scenarios:** The diagrams below show the complete scenarios as they are built in Make.com. The JSON files in `blueprints/` are anonymized, English-translated **reference versions** and are reduced: `02_hazards_main.json` contains only the rain-warning route, and `03_spot_weather_main.json` contains the current-weather evaluation and a simple typhoon flag loop, but no forecast branch and none of the spot evaluation. See [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
 ---
 
@@ -259,9 +259,9 @@ The Make.com scenarios expect the following structure. Names must match the blue
 | :--- | :--- | :--- |
 | `StationID` | Formula (text) | CWA station ID of the active stop |
 | `HazardLevel` | Number | Current weather level 1–4 |
-| `Forecast-MAX` | Number | Typhoon flag (0/1) in the blueprint |
+| `Forecast-MAX` | Number | Holds the typhoon flag (0/1) here despite the name — see below |
 
-In the full setup, the trip page additionally stores the forecast maxima per horizon (2 h, 4 h, 6 h, 10 h) and a separate typhoon flag.
+The `Forecast-MAX` name is a leftover and does not describe what the blueprint puts in it. Do not treat it as the forecast mechanism: the values the spot filter actually reads are the **per-horizon** properties of the full setup (`Forecast MAX 2h`, `4h`, `6h`, `10h`), which the blueprint does not produce. The full trip page also keeps a separate, properly named typhoon flag.
 
 **Hazard status database** (reset and updated by scenario 02)
 
@@ -314,7 +314,9 @@ An example. It is 10:00 and a spot is tagged with a duration of 6 hours, so it s
 | 12–15 | rain | **fails** |
 | 15–18 | clear | fine |
 
-If that spot needs at least cloudy weather, it drops out — even though the weather right now, and again later, is perfectly good. Starting a six-hour activity into a forecast that turns at noon is exactly what the system is there to prevent. This is also why the pipeline stores the **maximum** level across a window rather than the average: the worst block decides.
+If that spot needs at least cloudy weather, it drops out — even though the weather right now, and again later, is perfectly good. Starting a six-hour activity into a forecast that turns at noon is exactly what the system is there to prevent.
+
+In practice the windows are precomputed rather than recalculated per spot. Scenario 03 stores the **worst** level across each of the next 2, 4, 6 and 10 hours in its own property (`Forecast MAX 2h`, `Forecast MAX 4h`, and so on), and a spot's duration selects which of them applies — a short visit is judged on the 2-hour value, a half-day trip on the 6-hour one. The maximum is stored rather than the average precisely so that one bad block inside the window survives into the comparison instead of being smoothed away.
 
 The consequence is that two spots under identical current weather can get opposite verdicts, purely because one takes an hour and the other takes six.
 
@@ -339,7 +341,9 @@ Everything below is maintained by hand, once per spot. The automation contribute
 | `Worthwhile until` | Time | Closing time or similar cut-off; compared against `Duration` to see whether starting still pays off |
 | `Weather tolerance` | Number | Worst conditions the spot still works in (1–4) |
 
-**How the automation reaches these rows.** Make does not write display values into the dashboard directly. Each scenario writes its raw outcome — a weather level, a hazard state — into a dedicated property, and a separate Notion **formula property** translates that raw value into what the dashboard finally shows and filters on. These formula properties live on a central `Referenzen` ("references") page that holds several databases and largely defines how the dashboard renders. Changing the presentation is therefore a formula change on that page, not a change to the Make scenarios.
+**Where the comparison happens.** Not in Make. Make's job ends at delivering numbers: it writes the per-block forecast levels into dedicated properties in Notion and stops there. The actual decision — translating those raw values and matching them against the requirements stored on each spot — is a **Notion formula**. Those formulas live on a central `References` page holding several databases, which is what largely defines how the dashboard renders.
+
+The practical consequence is worth knowing before changing anything: adjusting how spots are judged or displayed is a formula edit on that page, not a change to the Make scenarios. The scenarios only decide *what data* arrives.
 
 > Property names above are those of this setup, translated; adapt them to your own workspace. Neither the spot evaluation nor the reference page is part of the reduced blueprint files — see [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
@@ -392,7 +396,7 @@ The blueprints in `blueprints/` are reduced reference versions of the scenarios 
 - **Reset before fetch (`02`):** the hazard fields are cleared before calling CWA. If the API call fails, the fields stay empty until the next successful run.
 - **Single-row assumption (`02`):** the hazard status database is addressed through `{{18.id}}` (the search result) and the area of that row is not compared with the alert's location. It works as intended with a single row; with several rows, each search result would multiply the downstream API calls and every row could receive the same alert times. The full setup keeps one row per stop and matches the alert to the right one, which is the part this reduced blueprint leaves out.
 - **Missing observations (`03`):** the level logic is keyword-based. A missing or invalid weather value results in level 1 ("normal").
-- **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The per-spot evaluation behind the "Pick a Spot" filter — matching each spot's duration against the forecast blocks it spans, plus the opening-hours and time-of-day checks — lives in the full scenario and on the `Referenzen` page, and is not included here.
+- **No spot filtering (`03`):** the blueprint writes the weather level only to the trip page. The per-spot evaluation behind the "Pick a Spot" filter — matching each spot's duration against the forecast blocks it spans, plus the opening-hours and time-of-day checks — lives in the full scenario and on the `References` page, and is not included here.
 - **Widget schedule:** duplicated logic – the itinerary in Notion and the widget schedule are maintained separately.
 
 ---
