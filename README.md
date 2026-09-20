@@ -335,7 +335,7 @@ lets(
 
 The dates are compared as `YYYY-MM-DD` strings, which works because that format sorts lexicographically.
 
-> **Timezone caveat:** the formula takes today from `now()`, which follows the Notion workspace timezone rather than the destination's. If the workspace is set to a home timezone while travelling, the stop can flip over hours early or late. The forecast widget avoids this by pinning `Asia/Taipei` explicitly (see [Widget](#5-dashboard-widget-srcmeteoblue-widgethtml)); the Notion side has no equivalent guard.
+> **Timezone caveat:** the formula takes today from `now()`, which follows the Notion workspace timezone rather than the destination's. If the workspace is set to a home timezone while travelling, the stop can flip over hours early or late. The same applies to the `hour(now())` comparisons in the time-of-day and cut-off checks. Both of the other layers pin the timezone explicitly — the widget through `Asia/Taipei` in its date formatting, and Make when it stamps the update time — so Notion's formulas are the one place relying on a workspace setting.
 
 **Trip page** (`{{YOUR_NOTION_MAIN_PAGE_ID}}`, read and updated by scenario 03)
 
@@ -419,7 +419,9 @@ The consequence is that two spots under identical current weather can get opposi
 
 **Where the automation stops and judgement begins:** a 3-hour block is the finest resolution CWA offers, so there is no forecast window short enough to judge a one-hour spot honestly. Anything shorter than a block would simply inherit that block's verdict, and a block that is mostly rain would hide a 45-minute spot even when the next 45 minutes are fine. An earlier version tried to close the gap by judging short spots on the current station observation instead, but that reading describes a single moment while the block describes three hours, and mixing the two produced contradictory answers.
 
-Spots with `Duration [h] = 1` are therefore a deliberate exception: **no automated weather check applies to them**, and the traveller decides by looking out of the window. Every longer duration maps onto a forecast window that actually exists. Drawing that line explicitly is the point — a fabricated one-hour forecast would look authoritative while being an artefact of the block it was cut from.
+Spots with `Duration [h] = 1` are therefore the exception. Make computes no one-hour horizon at all — it writes only the `2h`, `4h`, `6h` and `10h` maxima. The one-hour level is filled in on the Notion side instead, and the only momentary reading available to it is the station observation, which is why that branch still runs even though no multi-hour horizon uses it.
+
+So a one-hour spot is judged on what the weather *is*, every longer one on what the forecast says it will be. That asymmetry is deliberate: a one-hour window carved out of a 3-hour block would look authoritative while being an artefact of the block it came from, and the traveller can see the current weather anyway.
 
 #### 2. There is still enough time to do it
 
@@ -451,7 +453,7 @@ Everything below is maintained by hand, once per spot. The automation contribute
 | `Name` | Title | Spot name |
 | `Location` | Select | Which stop the spot belongs to |
 | `Priority` | Select | `Must-Do` (would regret leaving without it), `Should-Do` (great if weather, route and time allow), `Could-Do` (good spontaneous alternative when nearby) |
-| `Duration [h]` | Select | `1`, `2`, `4`, `6` or `10`; `2` and up select the matching forecast horizon, `1` is judged by eye |
+| `Duration [h]` | Select | `1`, `2`, `4`, `6` or `10`; `2` and up select the matching forecast horizon, `1` falls back on the current observation |
 | `Visited` | Checkbox | Ticked once done; excludes the spot from the list for good |
 | `Time of day` | Multi-select | `Morning`, `Daytime`, `Sunset`, `Evening` |
 | `Worthwhile until [time]` | Number | Latest hour at which starting still makes sense |
