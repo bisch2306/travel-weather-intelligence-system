@@ -35,7 +35,7 @@ graph TD
         W1["04 Spot Weather Webhook Listener"] -->|"Make API: run scenario"| P["03 Spot Weather Pipeline"]
     end
 
-    T["Wetter-Check button in Notion<br/>(configured outside this repo)"] -->|"calls webhook"| W1
+    T["Weather Check button in Notion<br/>(configured outside this repo)"] -->|"calls webhook"| W1
 
     subgraph Notion["Notion workspace"]
         HD[("Hazard status database")]
@@ -58,7 +58,7 @@ graph TD
     P -->|"writes the current level into every spot row"| SP
     ID --> DB
     HD --> DB
-    SP -->|"Weather check view:<br/>tolerance >= current level"| DB
+    SP -->|"Spots view filter:<br/>tolerance >= current level"| DB
 
     WG["meteoblue-widget.html<br/>hosted e.g. on GitHub Pages<br/>(configured schedule, independent of Notion)"] -->|"embed block"| DB
     WG --> MB["Meteoblue forecast iframe"]
@@ -202,7 +202,7 @@ flowchart LR
 
 Receives a call on a Make custom webhook and starts scenario 03 immediately via the Make API (`POST /api/v2/scenarios/{scenarioId}/run`, token authentication). This allows an on-demand refresh, e.g. after changing the itinerary.
 
-On the dashboard this is wired to the **Wetter-Check** button in the "Pick a Spot" section (see the [screenshot](#spot-filtering-pick-a-spot)): pressing it calls this webhook, scenario 03 runs, and the spot list re-filters against the fresh weather level.
+On the dashboard this is wired to the **Weather Check** button in the "Pick a Spot" section (see [Spot filtering](#spot-filtering-pick-a-spot)): pressing it calls this webhook, scenario 03 runs, and the spot list re-filters against the fresh weather level.
 
 The Notion-side trigger that calls this webhook (a Notion button or automation) is **not** part of this repository and has to be set up separately.
 
@@ -268,12 +268,14 @@ The same 1–4 scale is used twice: once for the **current weather level** at th
 The weather levels are not just displayed — they decide **which activities the dashboard still offers**. This is what the "Pick a Spot" section on the dashboard does.
 
 <p align="center">
-  <img src="docs/pick-a-spot.png" alt="Pick a Spot section of the Notion dashboard, showing spot cards with their weather tolerance" width="420">
+  <img src="docs/pick-a-spot.png" alt="Illustration of the Pick a Spot dashboard section: spot cards listing priority, duration, time of day and weather tolerance" width="420">
 </p>
 
-The **Wetter-Check** ("weather check") button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh weather level.
+> The image is an English illustration of the dashboard section, redrawn from the live view — the author's own dashboard is maintained in German.
 
-The screenshot was taken at level 1: the weather in Taipei was good, so nothing is filtered out. Spots that *require* good weather are available, and so is everything that merely tolerates rain — at level 1 the whole index qualifies. The filter only starts removing entries as the level climbs.
+The **Weather Check** button at the top runs the Make scenario on demand: it calls the webhook of scenario 04, which starts scenario 03 through the Make API. Once the run finishes, the spot cards below reflect the fresh weather level.
+
+The state shown is level 1: the weather in Taipei was good, so nothing is filtered out. Spots that *require* good weather are available, and so is everything that merely tolerates rain — at level 1 the whole index qualifies. The filter only starts removing entries as the level climbs.
 
 Every spot is tagged once, by hand, with the worst conditions it still makes sense in. An outdoor viewpoint is tolerance `1`, a temple courtyard `3`, an indoor museum or a beef noodle shop `4`. Scenario 03 then writes the current weather level of the active stop into **every row of the spot index**, and a formula compares the two values per row:
 
@@ -281,7 +283,7 @@ Every spot is tagged once, by hand, with the worst conditions it still makes sen
 Weather OK  =  Weather tolerance >= Current level
 ```
 
-The "Weather check" view of the spot database filters on that formula, so the list shrinks and grows on its own as the weather changes:
+The `Spots` view of the spot database carries a filter on that formula, so the list shrinks and grows on its own as the weather changes:
 
 | Current level | Spots shown |
 | :---: | :--- |
@@ -291,16 +293,6 @@ The "Weather check" view of the spot database filters on that formula, so the li
 | 4 ⛈️ | tolerance 4 only — indoor spots, night markets, food |
 
 The practical effect: during a heavy-rain warning the dashboard stops suggesting Elephant Mountain and leaves the museums and indoor food spots on the list, without anyone having to re-filter by hand.
-
-The dashboard itself is kept in German. Its labels map to this README as follows:
-
-| Label in the screenshot | English | Tolerance |
-| :--- | :--- | :---: |
-| `Gutes Wetter nötig` | Good weather required | 1 |
-| `Leichter Regen okay` | Light rain is fine | 3 |
-| `Wetterunabhängig` | Independent of weather | 4 |
-| `Tagsüber`, `Abend` | daytime, evening | – |
-| `Wetter-Check` | weather check (refresh button) | – |
 
 **Spot index** (`Taiwan Spot Index`, written by scenario 03 in the full setup)
 
@@ -314,7 +306,7 @@ Every spot carries four hand-maintained attributes — priority, duration, time 
 | `Time of day` | Multi-select | e.g. `daytime`, `evening`, `sunset` |
 | `Weather tolerance` | Number | Worst conditions the spot still works in (1–4), maintained by hand |
 | `Current level` | Number | Current weather level of the active stop, overwritten on every run |
-| `Weather OK` | Formula | `Weather tolerance >= Current level`; the "Weather check" view filters on it |
+| `Weather OK` | Formula | `Weather tolerance >= Current level`; the `Spots` view filters on it |
 
 > Property names above are the ones used in this setup; adapt them to your own workspace. The spot-index write is **not** part of the reduced blueprint files — see [Notes on the blueprint files](#-notes-on-the-blueprint-files).
 
