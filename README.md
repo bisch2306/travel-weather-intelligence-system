@@ -1,4 +1,4 @@
-# 🇹🇼 Taiwan Travel - Travel Risk & Weather Intelligence System
+# 🇹🇼 Taiwan - Travel Risk & Weather Intelligence System
 
 A schedule- and event-driven automation built with **Make.com** that pulls official Taiwanese weather and hazard data (CWA / WRA open data), derives simple weather and hazard indicators, and writes them into a **Notion travel workspace**. Everything can be shown on one Notion dashboard, including an embedded Meteoblue forecast widget for the current stop of the trip.
 
