@@ -169,6 +169,8 @@ flowchart TD
 | `高雄市` | `Kaohsiung` |
 | `花蓮縣` | `Hualien` |
 
+> In the blueprint this mapping is hardcoded into the scenario. The full setup keeps it as data instead: every itinerary row carries its own `CWA LocationName`, dataset ID and station ID, so adding a stop is a new row rather than a scenario edit. See [Itinerary database](#-notion-structure).
+
 ### 3. Spot Weather Pipeline (`03_spot_weather_main.json`)
 
 Starts with a search in Notion (no trigger module) and can be started by a schedule or by scenario 04 through the Make API.
@@ -258,11 +260,17 @@ The Make.com scenarios expect the following structure. Names must match the blue
 
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
-| `Station` | Title | Stop name; must match the values in the regional mapping table |
+| `Station` | Title | Stop name |
 | `Date range` | Date (range) | From when to when the trip is at this stop |
 | `Order` | Number | Position of the stop in the itinerary |
 | `Trip` | Relation | Link to the trip page, which holds the `Current order` counter |
+| `CWA Dataset ID` | Text | District forecast dataset for this stop |
+| `CWA Station ID` | Text | Observation station for this stop |
+| `CWA LocationName` | Text | County/city name as CWA spells it, e.g. `臺北市` |
+| `CWA warning region` | Text | Region the warnings are matched against |
 | `Status` | Formula | `🟢 Current`, `🟡 Next Stop`, `⚪ Upcoming` or `Past` — see below |
+
+Each stop therefore carries its own CWA identifiers, and the trip page mirrors those of the active stop (`Current CWA Dataset ID`, `Current CWA Station ID`, and so on). That is the whole mechanism by which resolving a date into a stop also resolves which API endpoints get queried — the mapping is data in a table, not a condition inside a scenario.
 
 This small table is where the date-driven stop resolution actually happens, and it is worth reading closely because **the four states do not all come from the same source**. `Current` and `Past` are decided by the date range against today. `Next Stop` is not: it comes from the `Order` number being one higher than the trip's current position, which is why the `Order` and `Trip` properties exist at all. Everything else falls through to `Upcoming`.
 
@@ -315,6 +323,8 @@ The dates are compared as `YYYY-MM-DD` strings, which works because that format 
 | `HazardLevel` | Number | Current weather level 1–4 |
 | `Forecast-MAX` | Number | Holds the typhoon flag (0/1) here despite the name — see below |
 
+In the full setup this page is the central state record and carries considerably more: the resolved current stop with its CWA identifiers, the per-horizon weather levels (`1h`, `2h`, `4h`, `6h`, `10h`), the typhoon flag, preformatted strings for the dashboard, and a `Weather last updated` timestamp — the latter matters because nothing refreshes the spot weather in the background, so the timestamp is the only way to see how stale the list is.
+
 The `Forecast-MAX` name is a leftover and does not describe what the blueprint puts in it. Do not treat it as the forecast mechanism: the values the spot filter actually reads are the **per-horizon** properties of the full setup (`Forecast MAX 2h`, `4h`, `6h`, `10h`), which the blueprint does not produce. The full trip page also keeps a separate, properly named typhoon flag.
 
 **Hazard status database** (reset and updated by scenario 02)
@@ -338,7 +348,7 @@ Location-dependent content — the night-market guide, for instance — follows 
 
 ### Weather level scale
 
-The same 1–4 scale is used twice: once for the **current weather level** at the active stop (derived by scenario 03) and once for the **weather tolerance** of each spot in the spot index.
+The same 1–4 scale is used on both sides of the comparison: once for the **forecast level** of a time window, and once for the **weather level** a spot requires.
 
 | Level | Meaning for a spot |
 | :---: | :--- |
@@ -379,7 +389,9 @@ An example. It is 10:00 and a spot is tagged with a duration of 6 hours, so it s
 
 If that spot needs at least cloudy weather, it drops out — even though the weather right now, and again later, is perfectly good. Starting a six-hour activity into a forecast that turns at noon is exactly what the system is there to prevent.
 
-In practice the windows are precomputed rather than recalculated per spot. Scenario 03 stores the **worst** level across each of the next 2, 4, 6 and 10 hours in its own property (`Forecast MAX 2h`, `Forecast MAX 4h`, and so on), and a spot's duration selects which of them applies — a short visit is judged on the 2-hour value, a half-day trip on the 6-hour one. The maximum is stored rather than the average precisely so that one bad block inside the window survives into the comparison instead of being smoothed away.
+In practice the windows are precomputed rather than recalculated per spot. The trip page stores the **worst** level across each of the next 1, 2, 4, 6 and 10 hours in its own property (`Weather level 1h`, `2h`, `4h`, `6h`, `10h`), and a spot's duration picks which one applies. This is why `Duration [h]` is a plain number drawn from a fixed set — `1`, `2`, `4`, `6`, `10` — rather than a free value or a label: each duration corresponds to exactly one stored horizon, so the lookup is a direct match with nothing to round.
+
+The maximum is stored rather than the average precisely so that one bad block inside the window survives into the comparison instead of being smoothed away.
 
 The consequence is that two spots under identical current weather can get opposite verdicts, purely because one takes an hour and the other takes six.
 
@@ -409,11 +421,25 @@ Everything below is maintained by hand, once per spot. The automation contribute
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
 | `Name` | Title | Spot name |
+| `Location` | Select | Which stop the spot belongs to |
 | `Priority` | Select | `Must-Do`, `Should-Do`, `Could-Do` |
-| `Duration` | Select | Rough length of the visit; decides how many 3-hour forecast blocks have to hold |
-| `Time of day` | Multi-select | Fixed times and ranges the spot is meant for, matched against the current time |
-| `Worthwhile until` | Time | Latest time a visit still makes sense — closing time, or simply when it gets too dark; compared against `Duration` |
-| `Weather tolerance` | Number | Worst conditions the spot still works in (1–4) |
+| `Duration [h]` | Number | `1`, `2`, `4`, `6` or `10` — selects the matching forecast horizon |
+| `Time of day` | Multi-select | `Morning`, `Daytime`, `Sunset`, `Evening` |
+| `Worthwhile until [time]` | Number | Latest hour at which starting still makes sense |
+| `Weather level` | Number | Worst conditions the spot still works in (1–4) |
+| `Weather` | Select | Display label for that level, e.g. `🌦️ Light rain is fine` |
+
+The four conditions are not buried in a view filter — each is its own formula property, and a fifth combines them:
+
+| Property | Type | Checks |
+| :--- | :--- | :--- |
+| `Location OK?` | Formula | The spot's location is the current stop |
+| `Weather OK?` | Formula | The horizon matching `Duration [h]` is within `Weather level` |
+| `Time feasible?` | Formula | It is not yet past `Worthwhile until [time]` |
+| `Time of day OK?` | Formula | Now falls inside one of the spot's windows |
+| `Pick a Spot` | Formula | All four at once — this is what the view filters on |
+
+Splitting the checks out this way is worth copying: when a spot unexpectedly disappears, the row itself shows which of the four said no.
 
 **Where the comparison happens.** Not in Make. Make's job ends at delivering numbers: it writes the per-block forecast levels into dedicated properties in Notion and stops there. The actual decision — translating those raw values and matching them against the requirements stored on each spot — is a **Notion formula**. Those formulas live on a central `References` page holding several databases, which is what largely defines how the dashboard renders.
 
