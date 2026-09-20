@@ -102,7 +102,7 @@ graph TD
 
 ### 1. Hazards Scheduler (`01_hazards_scheduler.json`)
 
-A single scheduled HTTP module that sends a GET request to the webhook URL of scenario 02. The run interval is configured in the Make.com scenario settings and is **not** part of the exported blueprint.
+A single scheduled HTTP module that sends a GET request to the webhook URL of scenario 02. The schedule lives in the Make.com scenario settings and is **not** part of the exported blueprint, so it has to be set up by hand after import. This setup runs it at four fixed times a day — **06:00, 12:00, 18:00 and 22:00** — rather than at a fixed interval.
 
 This is what makes the hazard side self-updating: warnings refresh on their own, and the **Hazard check** button on the dashboard calls the same webhook when an immediate run is wanted. The spot weather side has no such scheduler — see the note below.
 
@@ -264,7 +264,7 @@ The Make.com scenarios expect the following structure. Names must match the blue
 
 | Property | Type | Purpose |
 | :--- | :--- | :--- |
-| `StationID` | Formula (text) | CWA station ID of the active stop |
+| `StationID` | Formula (text) | CWA station ID of the active stop; its only use is the station observation call, so it shares that branch's leftover status |
 | `HazardLevel` | Number | Current weather level 1–4 |
 | `Forecast-MAX` | Number | Holds the typhoon flag (0/1) here despite the name — see below |
 
@@ -333,11 +333,20 @@ The consequence is that two spots under identical current weather can get opposi
 
 #### 2. There is still enough time to do it
 
-Each spot carries a `Worthwhile until` value holding closing times and similar cut-offs. The remaining time is compared against the spot's duration: a 2-hour spot that closes at 16:00 disappears from the list at 15:00, because starting it no longer makes sense.
+Each spot carries a `Worthwhile until` time: the latest moment at which visiting it still makes sense. That is not only opening hours — for an outdoor spot it is usually the point where it simply gets too dark to be worth the trip. The remaining time is compared against the spot's duration, so a 2-hour spot with a cut-off at 16:00 disappears from the list at 15:00, when there is no longer enough of it left.
 
 #### 3. The time of day matches
 
-`Time of day` is not a label but a filter, defined as fixed times and ranges. A spot meant for the morning is gone by midday; a sunset viewpoint only appears in its window.
+`Time of day` is not a label but a filter. The windows are defined globally, not per spot:
+
+| Label | Window |
+| :--- | :--- |
+| `Morning` | 03:00 – 11:00 |
+| `Daytime` | 09:00 – 18:00 |
+| `Sunset` | 16:00 – 18:30 |
+| `Evening` | 17:00 – 24:00 |
+
+They overlap on purpose, and a spot can carry several — it stays visible as long as the current time falls inside any of them. A spot marked morning-only is gone by midday; a sunset viewpoint surfaces for its two and a half hours and then disappears again.
 
 **Spot index** (`Taiwan Spot Index`)
 
@@ -349,7 +358,7 @@ Everything below is maintained by hand, once per spot. The automation contribute
 | `Priority` | Select | `Must-Do`, `Should-Do`, `Could-Do` |
 | `Duration` | Select | Rough length of the visit; decides how many 3-hour forecast blocks have to hold |
 | `Time of day` | Multi-select | Fixed times and ranges the spot is meant for, matched against the current time |
-| `Worthwhile until` | Time | Closing time or similar cut-off; compared against `Duration` to see whether starting still pays off |
+| `Worthwhile until` | Time | Latest time a visit still makes sense — closing time, or simply when it gets too dark; compared against `Duration` |
 | `Weather tolerance` | Number | Worst conditions the spot still works in (1–4) |
 
 **Where the comparison happens.** Not in Make. Make's job ends at delivering numbers: it writes the per-block forecast levels into dedicated properties in Notion and stops there. The actual decision — translating those raw values and matching them against the requirements stored on each spot — is a **Notion formula**. Those formulas live on a central `References` page holding several databases, which is what largely defines how the dashboard renders.
