@@ -13,7 +13,7 @@ The setup answers that directly. Every spot carries a duration, and the forecast
 When traveling through regions prone to typhoons, heavy rain and floods, checking forecasts manually is easy to forget. This project automates the following:
 
 - Fetch official rain, storm, flood and typhoon warnings and map them to the stops of the itinerary.
-- Evaluate the current weather at the active stop and store a weather level (1–4).
+- Derive a 1–4 weather level per forecast block, so conditions can be compared against what a spot requires.
 - Store the maximum forecast level for the next 2, 4, 6 and 10 hours, so a spot's duration can be matched against the weather expected over that window.
 - Raise a typhoon flag if a typhoon warning is active.
 - Filter the "Pick a Spot" list on the dashboard down to the activities whose weather holds for as long as they take, that are still open, and that suit the time of day.
@@ -39,6 +39,7 @@ graph TD
         W1["04 Spot Weather Webhook Listener"] -->|"Make API: run scenario"| P["03 Spot Weather Pipeline"]
     end
 
+    T1["Hazard check button in Notion"] -->|"calls webhook"| H
     T["Weather Check button in Notion<br/>(configured outside this repo)"] -->|"calls webhook"| W1
 
     subgraph Notion["Notion workspace"]
@@ -103,6 +104,8 @@ graph TD
 
 A single scheduled HTTP module that sends a GET request to the webhook URL of scenario 02. The run interval is configured in the Make.com scenario settings and is **not** part of the exported blueprint.
 
+This is what makes the hazard side self-updating: warnings refresh on their own, and the **Hazard check** button on the dashboard calls the same webhook when an immediate run is wanted. The spot weather side has no such scheduler — see the note below.
+
 ### 2. Hazards Pipeline (`02_hazards_main.json`)
 
 Triggered by a custom webhook. It resets the hazard fields, loads the relevant stops and then queries four warning sources via a router. Each route parses the response, extracts the warning type and its start/end time, and writes them to the matching row of the hazard status database.
@@ -111,7 +114,7 @@ Triggered by a custom webhook. It resets the hazard fields, loads the relevant s
   <img src="docs/hazard-status.png" alt="Hazard status section of the dashboard: an active rain warning for Taipei with its level and validity period" width="420">
 </p>
 
-The result on the dashboard: the warning type, its level and its validity period. The **Hazard check** button refreshes the data on demand, the same pattern as Weather Check in "Pick a Spot".
+The result on the dashboard: the warning type, its level and its validity period. This pipeline runs **both** on the schedule from scenario 01 and on demand via the **Hazard check** button.
 
 Which cards appear follows two rules:
 
@@ -206,7 +209,7 @@ flowchart TD
 | `陰`, `雲` | overcast, cloud | **2** |
 | anything else | clear / normal | **1** |
 
-> This observation-based level is **not** what the spot filter reads. It describes the weather at one moment, whereas the filter needs to know whether conditions hold over a span of hours, so the filter works off the forecast blocks instead. The value is kept for display and as a sanity check against the forecast.
+> **No longer used.** This observation-based level is a leftover: it describes the weather at a single moment, whereas the filter has to know whether conditions hold over a span of hours, so the live setup works purely off the forecast blocks. The logic is documented here because it is still present in the blueprint — not because anything reads its output.
 
 **Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future). In the full setup this flag is not just displayed: it switches the spot list off entirely — see [Spot filtering](#spot-filtering-pick-a-spot).
 
@@ -223,7 +226,9 @@ flowchart LR
 
 Receives a call on a Make custom webhook and starts scenario 03 immediately via the Make API (`POST /api/v2/scenarios/{scenarioId}/run`, token authentication). This allows an on-demand refresh, e.g. after changing the itinerary.
 
-On the dashboard this is wired to the **Weather Check** button in the "Pick a Spot" section (see [Spot filtering](#spot-filtering-pick-a-spot)): pressing it calls this webhook, scenario 03 runs, and the spot list re-filters against the fresh weather level.
+On the dashboard this is wired to the **Weather Check** button in the "Pick a Spot" section (see [Spot filtering](#spot-filtering-pick-a-spot)): pressing it calls this webhook, scenario 03 runs, and the spot list re-filters against the fresh forecast.
+
+> **This is the only way the spot weather updates.** Unlike the hazard side, which has the scheduler in scenario 01, nothing refreshes the forecast evaluation in the background — the list you see reflects the last time the button was pressed. Worth knowing before trusting it after a long break.
 
 The Notion-side trigger that calls this webhook (a Notion button or automation) is **not** part of this repository and has to be set up separately.
 
