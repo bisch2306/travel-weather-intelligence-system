@@ -169,7 +169,7 @@ flowchart TD
 | `高雄市` | `Kaohsiung` |
 | `花蓮縣` | `Hualien` |
 
-> In the blueprint this mapping is hardcoded into the scenario. The full setup keeps it as data instead: every itinerary row carries its own `CWA LocationName`, dataset ID and station ID, so adding a stop is a new row rather than a scenario edit. See [Itinerary database](#-notion-structure).
+> This mapping is hardcoded as module filters, in the full setup as well as in the blueprint — the rain, storm and typhoon routes each carry their own list of accepted county, district or region names. Adding a stop to the trip therefore means editing those filters, not just adding an itinerary row. The spot weather pipeline works the other way round and reads its identifiers from Notion, so the two scenarios do not behave alike here.
 
 ### 3. Spot Weather Pipeline (`03_spot_weather_main.json`)
 
@@ -212,11 +212,33 @@ flowchart TD
 | `陰`, `雲` | overcast, cloud | **2** |
 | anything else | clear / normal | **1** |
 
-> **No longer used.** This observation-based level is a leftover: it describes the weather at a single moment, whereas the filter has to know whether conditions hold over a span of hours, so the live setup works purely off the forecast blocks. The logic is documented here because it is still present in the blueprint — not because anything reads its output.
+> This keyword matching applies to the **observation** only. It is a separate mechanism from the forecast levels below, which read a numeric code instead, and it describes a single moment rather than a span — which is why the multi-hour horizons driving the spot filter do not use it. The branch still runs on every execution and stores its result.
 
 **Typhoon flag:** set to `1` if a land warning (`陸上颱風警報`) or a sea-and-land warning (`海上陸上颱風警報`) is active (`expires` in the future). The full setup additionally requires the warning to apply to the current stop's CWA region and to not be `urgency = Past`. In the full setup this flag is not just displayed: it switches the spot list off entirely — see [Spot filtering](#spot-filtering-pick-a-spot).
 
-**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each 3-hour time block and stores the maximum for the next 2, 4, 6 and 10 hours. The maximum is used rather than the average on purpose: one bad block inside a window is enough to rule an activity out, so averaging would smooth away exactly the case the system exists to catch.
+**Forecast levels:** when no typhoon route matched, the fallback route requests the district forecast, derives a level for each time block and stores the maximum per horizon. The maximum is used rather than the average on purpose: one bad block inside a window is enough to rule an activity out, so averaging would smooth away exactly the case the system exists to catch.
+
+The forecast levels are derived from CWA's numeric `WeatherCode`, **not** from the Chinese weather text used for the observation above:
+
+| `WeatherCode` | Meaning | Level |
+| :--- | :--- | :---: |
+| `1`–`3` | clear to partly cloudy | **1** |
+| `4`–`7`, `24`–`28`, `37`–`38` | cloudy, overcast, haze | **2** |
+| `8`–`10`, `29`–`30` | showers, occasional rain | **3** |
+| anything else | thunder, heavy rain, snow | **4** |
+
+The default branch is what makes this safe: an unrecognised code falls through to `4`, so a weather type nobody anticipated blocks a spot instead of quietly passing it.
+
+Each horizon selects the blocks overlapping a window, and the windows are offset rather than starting at the current minute:
+
+| Horizon | Blocks overlapping |
+| :--- | :--- |
+| `2h` | now + 30 min … now + 90 min |
+| `4h` | now + 1 h … now + 3 h |
+| `6h` | now + 1 h … now + 5 h |
+| `10h` | now + 1 h … now + 9 h |
+
+The offsets matter when reading the numbers: `Forecast MAX 2h` does not describe the next two hours from this second, but the block or blocks covering roughly the next half hour to hour and a half — which is the span an activity started now would actually run into.
 
 **Spot filtering:** in the full setup this scenario also feeds the spot evaluation behind the "Pick a Spot" list, which judges each spot against the forecast blocks its duration spans — see [Spot filtering](#spot-filtering-pick-a-spot).
 
@@ -418,7 +440,7 @@ The value is set by hand per spot, and it is a judgement rather than a closing t
 
 Each window is half-open (`>= start`, `< end`). They overlap on purpose, and a spot can carry several — it stays visible as long as the current time falls inside any of them. A spot marked morning-only is gone by midday; a sunset viewpoint surfaces for its two and a half hours and then disappears again.
 
-> **Gap between midnight and 03:00.** The four windows together cover 03:00–24:00, so nothing matches between `00:00` and `03:00` and the list is empty in those hours whatever a spot is tagged with. Worth knowing where night markets run past midnight: a stall tagged `Evening` disappears at 24:00 even while it is still open.
+> The four windows together cover 03:00–24:00. Nothing matches between midnight and 03:00, so the list is empty in those hours whatever a spot is tagged with — deliberately, since those are not hours spent sightseeing. Anyone reusing this for a trip with genuine late-night plans would need `Evening` to wrap past midnight (`hour >= 17 or hour < 3`).
 
 **Spot index** (`Taiwan Spot Index`)
 
