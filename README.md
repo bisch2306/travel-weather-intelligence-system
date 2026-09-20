@@ -44,11 +44,12 @@ graph TD
     T["Weather Check button in Notion<br/>(configured outside this repo)"] -->|"calls webhook"| W1
 
     subgraph Notion["Notion workspace"]
-        HD[("Hazard status database")]
-        ID[("Itinerary database")]
-        TR[("Trip page")]
-        RF[("References page<br/>raw values + formula layer")]
-        SP[("Spot index")]
+        subgraph REF["References page (raw values + formula layer)"]
+            ID[("Itinerary")]
+            HD[("Hazard status")]
+            TR[("Trip")]
+        end
+        SP[("Taiwan Spot Index")]
         DB["Travel dashboard"]
     end
 
@@ -59,14 +60,14 @@ graph TD
     A4 --> P
     A5 --> P
     A6 --> P
-    H -->|"reads active stops"| ID
+    H -->|"reads the active stops"| ID
     H -->|"reset, then write warning types and times"| HD
-    P -->|"reads station ID, writes weather levels and typhoon flag"| TR
-    P -->|"writes the raw weather outcome"| RF
-    RF -->|"formulas translate it for display"| SP
+    P -->|"reset, then write levels,<br/>typhoon flag and timestamp"| TR
+    ID -->|"date decides the current stop"| TR
+    TR -->|"formulas: levels and<br/>current location per spot"| SP
     ID --> DB
     HD --> DB
-    SP -->|"filtered by weather window,<br/>opening hours and time of day"| DB
+    SP -->|"filtered by location, weather window,<br/>opening hours and time of day"| DB
 
     WG["meteoblue-widget.html<br/>hosted e.g. on GitHub Pages<br/>(configured schedule, independent of Notion)"] -->|"embed block"| DB
     WG --> MB["Meteoblue forecast iframe"]
